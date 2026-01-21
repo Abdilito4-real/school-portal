@@ -69,15 +69,16 @@ const ImagePreview = ({ url, label }: { url: string | undefined | null; label: s
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    setHasError(false);
+    setHasError(false); // Reset error state if URL changes
   }, [url]);
 
-  // If the URL is invalid, has an error, or is null/undefined, render the placeholder.
-  if (hasError || !url || !url.startsWith('http')) {
+  const isValidUrl = url && typeof url === 'string' && url.startsWith('http');
+
+  if (hasError || !isValidUrl) {
     return <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted" />;
   }
 
-  // If we reach here, 'url' is a valid string, so we can safely pass it to the Image component.
+  // At this point, TypeScript knows `url` is a valid string because of the `isValidUrl` check.
   return (
     <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted">
       <Image
