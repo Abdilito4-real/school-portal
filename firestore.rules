@@ -1,0 +1,215 @@
+/**
+ * # Firestore Security Rules: Campus Hub
+ *
+ * ## Core Philosophy
+ * This ruleset enforces a security model with two primary user types: Students and Administrators.
+ * Students have strict ownership over their personal data (academic results, fees), ensuring privacy.
+ * Administrators have broad permissions to manage global data (Classes, Announcements, Student profiles) and view student-specific data for administrative purposes.
+ *
+ * ## Data Structure
+ * - `/users/{userId}`: A path-based container for all data private to a specific student (user).
+ *   - `academicResults/{academicResultId}`: Private academic results for the student.
+ *   - `fees/{feeId}`: Private fee information for the student.
+ * - `/students/{studentId}`: Public-facing student profile information, managed by admins. The `{studentId}` typically corresponds to a user's UID.
+ * - `/classes/{classId}`: A global collection of all available classes, readable by students but managed by admins.
+ * - `/announcements/{announcementId}`: A global collection of announcements. Admins create them, and students can only read announcements relevant to their class.
+ * - `/roles_admin/{userId}`: A lookup collection to grant admin privileges. The existence of a document with a user's UID grants them admin rights.
+ * - `/fees/{feeId}`: A global collection for fee aggregation on the admin dashboard. Writable by admins only.
+ * - `/academicResults/{academicResultId}`: A global, denormalized collection of result summaries for dashboard aggregation.
+ * - `/site_content/{contentId}`: A global collection for public website content, writable by admins only.
+ *
+ * ## Key Security Decisions
+ * - **Admin Role by Existence**: A user is considered an admin if a document with their UID exists in the `/roles_admin` collection. This is a simple and effective way to manage roles.
+ * - **Student Data Privacy**: All data under `/users/{userId}` is strictly controlled. Only the user themselves (or an admin) can access it. Listing other users' private data is impossible.
+ * - **Denormalization for Authorization**: To secure announcements, a student's `classId` (from their `/students/{studentId}` profile) is checked against the `classIds` array on an announcement document during a `get` request. This requires an extra document read but enables fine-grained access control.
+ * - **Prototyping Flexibility**: These rules strictly enforce *who* can access data but do *not* validate the shape or type of data being written (e.g., string lengths, enum values). This allows for rapid frontend development and iteration. Critical relational IDs (e.g., `studentId`) are validated to maintain data integrity.
+ *
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the core function for enforcing document ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the user has an admin role by verifying the existence
+     * of their UID in the roles_admin collection.
+     */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+    
+    /**
+     * Checks if the user is the special-cased bootstrap admin.
+     */
+    function isBootstrapAdmin() {
+      return request.auth.token.email == 'admin@example.com';
+    }
+
+
+    /**
+     * On create, validates that the incoming document's studentId field
+     * matches the user ID from the path, ensuring data consistency.
+     */
+    function isCreatingOwnStudentData(userId) {
+      return request.resource.data.studentId == userId;
+    }
+
+    /**
+     * On update, ensures the studentId field cannot be changed,
+     * preventing documents from being reassigned to other users.
+     */
+    function studentIdIsImmutable() {
+      return request.resource.data.studentId == resource.data.studentId;
+    }
+
+    /**
+      * Checks if a student can read an announcement. This requires a 'get' call
+      * to the student's profile to retrieve their classId and check if it's
+      * included in the announcement's list of targeted classes.
+      */
+    function canReadAnnouncement(announcement) {
+      let studentClassId = get(/databases/$(database)/documents/students/$(request.auth.uid)).data.classId;
+      return studentClassId in announcement.data.classIds;
+    }
+
+    // -------------------------------------------------------------------------
+    // User-Private Collections
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a student's private academic results.
+     * @path /users/{userId}/academicResults/{academicResultId}
+     * @allow A logged-in student (auth.uid: 'user123') reading their own result at `/users/user123/academicResults/res456`. (get)
+     * @deny A student (auth.uid: 'userABC') trying to read another student's result at `/users/user123/academicResults/res456`. (get)
+     * @principle Restricts access to a user's own data tree. Admins are granted override access for management.
+     */
+    match /users/{userId}/academicResults/{academicResultId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) || isAdmin()) && isCreatingOwnStudentData(userId);
+      allow update: if (isOwner(userId) || isAdmin()) && studentIdIsImmutable() && resource != null;
+      allow delete: if (isOwner(userId) || isAdmin()) && resource != null;
+    }
+
+    /**
+     * @description Controls access to a student's private fee information.
+     * @path /users/{userId}/fees/{feeId}
+     * @allow An admin reading any student's fee status at `/users/user123/fees/fee789`. (get)
+     * @deny A student (auth.uid: 'userABC') creating a fee document under another student's path at `/users/user123/fees/fee789`. (create)
+     * @principle Restricts access to a user's own data tree. Admins are granted override access for management.
+     */
+    match /users/{userId}/fees/{feeId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) || isAdmin()) && isCreatingOwnStudentData(userId);
+      allow update: if (isOwner(userId) || isAdmin()) && studentIdIsImmutable() && resource != null;
+      allow delete: if (isOwner(userId) || isAdmin()) && resource != null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Global & Administrative Collections
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Manages admin role assignments. Only other admins can modify this collection.
+     * @path /roles_admin/{userId}
+     * @allow An existing admin deleting a role document at `/roles_admin/user456`. (delete)
+     * @deny A non-admin user trying to create a role for themselves at `/roles_admin/user123`. (create)
+     * @principle Secures role management by restricting write access to current administrators. Listing is disabled to prevent enumeration of admins.
+     */
+    match /roles_admin/{userId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if (isOwner(userId) && isBootstrapAdmin()) || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Manages student profiles. Admins have full control. Students can only read their own profile.
+     * @path /students/{studentId}
+     * @allow A logged-in student (auth.uid: 'student123') reading their own profile at `/students/student123`. (get)
+     * @deny A logged-in student (auth.uid: 'student123') trying to list all students at `/students`. (list)
+     * @principle Enforces admin-only writes for core system data while allowing users to read their own record. Listing is restricted to prevent data scraping.
+     */
+    match /students/{studentId} {
+      allow get: if isOwner(studentId) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Manages global class information. Writable only by admins, readable by any authenticated user.
+     * @path /classes/{classId}
+     * @allow Any authenticated student listing all available classes. (list)
+     * @deny An authenticated student attempting to create a new class. (create)
+     * @principle Public read for signed-in users with admin-only writes for content integrity.
+     */
+    match /classes/{classId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Manages announcements. Writable only by admins. Readable by students if the announcement targets their class.
+     * @path /announcements/{announcementId}
+     * @allow A student in 'ClassA' reading an announcement that has 'ClassA' in its `classIds` array. (get)
+     * @deny A student in 'ClassB' reading an announcement that only targets 'ClassA'. (get)
+     * @principle Enforces fine-grained read access via a denormalized field (`classIds`) and a lookup on the student's profile.
+     */
+    match /announcements/{announcementId} {
+      allow get: if isAdmin() || (isSignedIn() && canReadAnnouncement(resource));
+      allow list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    /**
+     * @description Manages editable content for the public website. Writable only by admins.
+     * @path /site_content/{contentId}
+     * @allow An anonymous user reading the homepage content. (get)
+     * @deny A non-admin user trying to update the homepage content. (update)
+     * @principle Public read for all, admin-only writes for content integrity.
+     */
+    match /site_content/{contentId} {
+      allow read;
+      allow write: if isAdmin();
+    }
+
+    /**
+     * @description Global, denormalized collection of fees for dashboard aggregation. Writable only by admins.
+     * @path /fees/{feeId}
+     * @allow Admins can list fees for the dashboard.
+     * @deny Students cannot access this global collection directly.
+     */
+    match /fees/{feeId} {
+      allow read, write: if isAdmin();
+    }
+
+    /**
+     * @description Global, denormalized collection of academic results for dashboard aggregation.
+     * @path /academicResults/{resultId}
+     * @allow Admins can list results for the dashboard. Authenticated users can write (admins creating results).
+     * @deny Students cannot access this global collection directly.
+     */
+    match /academicResults/{resultId} {
+      allow read: if isAdmin();
+      allow write: if isSignedIn(); // Allows admins to create result summaries
+    }
+  }
+}

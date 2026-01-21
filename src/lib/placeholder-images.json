@@ -1,0 +1,28 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-campus",
+      "description": "A wide shot of a modern university campus on a sunny day.",
+      "imageUrl": "https://images.unsplash.com/photo-1734184489468-59b6fd3d1a89?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxtb2Rlcm4lMjB1bml2ZXJzaXR5fGVufDB8fHx8MTc2ODgwOTYwM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "modern university"
+    },
+    {
+      "id": "mission-students",
+      "description": "A group of diverse students collaborating around a table.",
+      "imageUrl": "https://images.unsplash.com/photo-1758525862357-27fb39545240?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxzdHVkZW50cyUyMGNvbGxhYm9yYXRpbmd8ZW58MHx8fHwxNzY4NzkyNTA2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "students collaborating"
+    },
+    {
+      "id": "academics-library",
+      "description": "A quiet, well-lit library with students studying.",
+      "imageUrl": "https://images.unsplash.com/photo-1593672572837-d1bb82b59370?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHx1bml2ZXJzaXR5JTIwbGlicmFyeXxlbnwwfHx8fDE3Njg3NDYyOTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "university library"
+    },
+    {
+      "id": "campus-life-group",
+      "description": "A group of students sitting on the grass, laughing together.",
+      "imageUrl": "https://images.unsplash.com/photo-1629805019330-15570b096690?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8c3R1ZGVudHMlMjBvdXRkb29yc3xlbnwwfHx8fDE3Njg4MDk2MDN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "students outdoors"
+    }
+  ]
+}

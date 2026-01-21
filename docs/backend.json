@@ -1,0 +1,401 @@
+
+{
+  "entities": {
+    "Student": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Student",
+      "type": "object",
+      "description": "Represents a student in the Campus Hub system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Student entity."
+        },
+        "classId": {
+          "type": "string",
+          "description": "Reference to Class. (Relationship: Class 1:N Student)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the student."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the student."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the student.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "classId",
+        "firstName",
+        "lastName",
+        "email"
+      ]
+    },
+    "AcademicResult": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AcademicResult",
+      "type": "object",
+      "description": "Represents a student's academic result for a specific term and year.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AcademicResult entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to Student. (Relationship: Student 1:N AcademicResult)"
+        },
+        "term": {
+          "type": "string",
+          "description": "The academic term (e.g., 1st, 2nd, 3rd)."
+        },
+        "year": {
+          "type": "number",
+          "description": "The academic year."
+        },
+        "className": {
+          "type": "string",
+          "description": "The name of the class/subject."
+        },
+        "grade": {
+          "type": "string",
+          "description": "The grade received by the student."
+        },
+        "comments": {
+            "type": "string",
+            "description": "Admin comments on the student's performance."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the result was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "term",
+        "year",
+        "className",
+        "grade",
+        "createdAt"
+      ]
+    },
+    "Fee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Fee",
+      "type": "object",
+      "description": "Represents a student's fee status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Fee entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to Student. (Relationship: Student 1:1 Fee)"
+        },
+        "session": {
+          "type": "string",
+          "description": "The academic session for the fee (e.g., '2023/2024')."
+        },
+        "term": {
+          "type": "string",
+          "description": "The academic term for the fee.",
+          "enum": ["1st", "2nd", "3rd"]
+        },
+        "status": {
+          "type": "string",
+          "description": "The fee status, calculated based on payments (e.g., Paid, Pending, Partial)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total fee amount for the period."
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "The cumulative amount paid by the student."
+        },
+        "balanceRemaining": {
+          "type": "number",
+          "description": "The outstanding balance. Calculated as amount - amountPaid."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The due date for the fee payment.",
+          "format": "date-time"
+        },
+        "paidDate": {
+          "type": "string",
+          "description": "The timestamp when the fee was fully paid.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the fee record was created or updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "session",
+        "term",
+        "status",
+        "amount",
+        "dueDate",
+        "createdAt"
+      ]
+    },
+    "Announcement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Announcement",
+      "type": "object",
+      "description": "Represents an announcement in the Campus Hub system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Announcement entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the announcement."
+        },
+        "content": {
+          "type": "string",
+          "description": "The content of the announcement."
+        },
+        "classIds": {
+          "type": "array",
+          "description": "References to Classes. (Relationship: Class N:N Announcement)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the announcement was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "content",
+        "createdAt"
+      ]
+    },
+    "Class": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Class",
+      "type": "object",
+      "description": "Represents a class in the campus system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Class entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the class."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the class."
+        },
+        "subjects": {
+          "type": "array",
+          "description": "A list of subjects taught in this class.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "SiteContent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Site Content",
+      "type": "object",
+      "description": "Stores editable content for the public website.",
+      "properties": {
+        "schoolName": { "type": "string" },
+        "logoUrl": { "type": "string", "format": "uri" },
+        "heroTitle": { "type": "string" },
+        "heroSubtitle": { "type": "string" },
+        "heroImageUrl": { "type": "string", "format": "uri" },
+        "missionTitle": { "type": "string" },
+        "missionText1": { "type": "string" },
+        "missionText2": { "type": "string" },
+        "missionImageUrl": { "type": "string", "format": "uri" },
+        "whyChooseTitle": { "type": "string" },
+        "feature1Title": { "type": "string" },
+        "feature1Text": { "type": "string" },
+        "feature2Title": { "type": "string" },
+        "feature2Text": { "type": "string" },
+        "feature3Title": { "type": "string" },
+        "feature3Text": { "type": "string" },
+        "academicsTitle": { "type": "string" },
+        "academicsText": { "type": "string" },
+        "academicsImageUrl": { "type": "string", "format": "uri" },
+        "communityTitle": { "type": "string" },
+        "communityText": { "type": "string" },
+        "communityImageUrl": { "type": "string", "format": "uri" }
+      }
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/academicResults/{academicResultId}",
+        "definition": {
+          "entityName": "AcademicResult",
+          "schema": {
+            "$ref": "#/backend/entities/AcademicResult"
+          },
+          "description": "Stores academic results for each student. Path-based ownership ensures only the student can access their results.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user (student)."
+            },
+            {
+              "name": "academicResultId",
+              "description": "The ID of the academic result."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/fees/{feeId}",
+        "definition": {
+          "entityName": "Fee",
+          "schema": {
+            "$ref": "#/backend/entities/Fee"
+          },
+          "description": "Stores fee information for each student. Path-based ownership ensures only the student can access their fee status.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user (student)."
+            },
+            {
+              "name": "feeId",
+              "description": "The ID of the fee."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "role_admin",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Indicates an admin user. Existence of document grants admin privileges.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user with admin role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/announcements/{announcementId}",
+        "definition": {
+          "entityName": "Announcement",
+          "schema": {
+            "$ref": "#/backend/entities/Announcement"
+          },
+          "description": "Stores announcements. Includes denormalized 'classIds' array for authorization independence. Admins can create announcements.",
+          "params": [
+            {
+              "name": "announcementId",
+              "description": "The ID of the announcement."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/classes/{classId}",
+        "definition": {
+          "entityName": "Class",
+          "schema": {
+            "$ref": "#/backend/entities/Class"
+          },
+          "description": "Stores information about classes, including a list of subjects taught.",
+          "params": [
+            {
+              "name": "classId",
+              "description": "The ID of the class."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/students/{studentId}",
+        "definition": {
+          "entityName": "Student",
+          "schema": {
+            "$ref": "#/backend/entities/Student"
+          },
+          "description": "Stores student profiles.  Administrators will have CRUD access. Includes the classId to provide the correct class per student.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The ID of the student."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/fees/{feeId}",
+        "definition": {
+            "entityName": "Fee",
+            "schema": { "$ref": "#/backend/entities/Fee" },
+            "description": "A global collection of all fees for aggregation purposes on the admin dashboard. This is a denormalization for performance."
+        }
+      },
+       {
+        "path": "/academicResults/{academicResultId}",
+        "definition": {
+            "entityName": "AcademicResult",
+            "schema": { "$ref": "#/backend/entities/AcademicResult" },
+            "description": "A global collection of all academic results for aggregation purposes on the admin dashboard. This is a denormalization for performance."
+        }
+      },
+      {
+        "path": "/site_content/{contentId}",
+        "definition": {
+            "entityName": "SiteContent",
+            "schema": { "$ref": "#/backend/entities/SiteContent" },
+            "description": "Stores editable content for the public website, like homepage text. Typically a singleton collection with one document.",
+            "params": [
+                {
+                    "name": "contentId",
+                    "description": "The ID of the content document (e.g., 'homepage')."
+                }
+            ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure prioritizes security and scalability for the Campus Hub application, adhering to Authorization Independence and DBAC principles.\n\n*   **Authorization Independence:** Achieved by denormalizing necessary authorization data. For example, the `Announcement` collection denormalizes `classIds` to allow efficient querying and rule creation without relying on `get()` calls.\n\n*   **Structural Segregation:** The data is segregated into collections based on access patterns. Student-specific data is stored under `/users/{userId}`, while global announcements are stored in the `/announcements` collection.\n\n*   **Access Modeling:**\n    *   **Private Data:** Student data like results and fees are nested under `/users/{userId}`, enforcing path-based ownership.\n    *   **Collaborative Data:** The announcement system uses the `classIds` array for specifying which classes should see an announcement.\n    *   **Global Roles:** The admin role is based on existence check on `/roles_admin/{uid}`.\n\n*   **QAPs:**\n    *   Secure `list` operations for student data are enabled by the path-based ownership under `/users/{userId}`.\n    *   Admin `list` operations are secured by checking for admin role existence in `/roles_admin/{uid}`.\n    *   Announcements are `list`ed to students based on `classIds` which are denormalized on the announcement document."
+  }
+}
