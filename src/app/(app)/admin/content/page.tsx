@@ -68,31 +68,34 @@ const SectionCard = ({ title, children, description }: { title: string; children
 const ImagePreview = ({ url, label }: { url: string | undefined | null; label: string }) => {
   const [hasError, setHasError] = useState(false);
 
-  // When the URL prop changes, reset the error state to allow retrying to load the image.
   useEffect(() => {
     setHasError(false);
   }, [url]);
 
-  // Only consider it a valid URL for display if it's a non-empty string starting with 'http'.
   const isValidUrl = useMemo(() => {
     return typeof url === 'string' && url.startsWith('http');
   }, [url]);
 
+  // If the URL isn't valid or has encountered an error, render the placeholder.
+  // This structure makes it clearer to the TypeScript compiler.
+  if (!isValidUrl || hasError) {
+    return <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted" />;
+  }
+
+  // If we reach here, `url` is a valid string, and there's no error.
   return (
     <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-      {isValidUrl && !hasError && (
-        <Image
-          src={url} // url is now guaranteed to be a valid string here
-          alt={`${label} preview`}
-          fill
-          sizes="80px" // Provide a hint to the optimizer
-          className="object-cover"
-          onError={() => {
-            console.warn(`Failed to load image preview for ${label}: ${url}`);
-            setHasError(true);
-          }}
-        />
-      )}
+      <Image
+        src={url}
+        alt={`${label} preview`}
+        fill
+        sizes="80px"
+        className="object-cover"
+        onError={() => {
+          console.warn(`Failed to load image preview for ${label}: ${url}`);
+          setHasError(true);
+        }}
+      />
     </div>
   );
 };
