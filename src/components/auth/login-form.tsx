@@ -59,11 +59,16 @@ export function LoginForm() {
           case 'auth/invalid-credential':
             setError('Invalid email or password. Please try again.');
             break;
+          case 'auth/network-request-failed':
+            setError('A network error occurred. Please check your connection and try again.');
+            break;
           default:
-            setError('An unexpected error occurred. Please try again.');
+            // Display the specific Firebase error for easier debugging
+            setError(`An error occurred: ${e.message} (Code: ${e.code})`);
             break;
         }
       } else {
+        // Handle non-Firebase errors
         setError(e.message || 'An unexpected error occurred.');
       }
     } finally {
