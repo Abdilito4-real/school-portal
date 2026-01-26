@@ -3,6 +3,8 @@ import { PT_Sans } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { cn } from '@/lib/utils';
+import { FirebaseClientProvider } from '@/firebase';
+import { SiteContentProvider } from '@/context/site-content-provider';
 
 const ptSans = PT_Sans({
   subsets: ['latin'],
@@ -24,8 +26,12 @@ export default function RootLayout({
     <html lang="en" className="h-full" suppressHydrationWarning>
       <head />
       <body className={cn("font-body antialiased h-full bg-background", ptSans.variable)}>
-        {children}
-        <Toaster />
+        <FirebaseClientProvider>
+          <SiteContentProvider>
+            {children}
+            <Toaster />
+          </SiteContentProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

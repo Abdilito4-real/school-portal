@@ -1,30 +1,35 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PublicHeader } from '@/components/layout/public-header';
 import { PublicFooter } from '@/components/layout/public-footer';
-import { defaultSiteContent } from '@/lib/default-content';
-import { getAdminDb } from '@/lib/firebase-admin';
-import type { SiteContent } from '@/lib/types';
+import { useSiteContent } from '@/context/site-content-provider';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Loader2 } from 'lucide-react';
 
-async function getHomePageContent(): Promise<SiteContent> {
-  try {
-    const db = getAdminDb();
-    const contentDoc = await db.collection('site_content').doc('homepage').get();
-    if (contentDoc.exists) {
-      // Merge with defaults to ensure all fields are present
-      return { ...defaultSiteContent, ...contentDoc.data() as SiteContent };
-    }
-    return defaultSiteContent;
-  } catch (error: any) {
-    // This will catch errors during build if env vars are not set
-    console.error("Error fetching homepage content:", error.message);
-    return defaultSiteContent;
+export default function HomePage() {
+  const { content, isLoading } = useSiteContent();
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <PublicHeader content={content} />
+        <main className="flex-1 space-y-8">
+            <Skeleton className="h-[70vh] w-full" />
+            <div className="container space-y-4">
+                <Skeleton className="h-12 w-1/3" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-3/4" />
+            </div>
+             <div className="flex h-screen w-full items-center justify-center bg-background fixed inset-0">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        </main>
+      </div>
+    );
   }
-}
-
-export default async function HomePage() {
-  const content = await getHomePageContent();
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
