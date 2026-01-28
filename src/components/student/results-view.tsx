@@ -1,5 +1,9 @@
 'use client';
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 import { useAuth } from '@/hooks/use-auth';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
@@ -64,6 +68,26 @@ const InfoField = ({ label, value }: { label: string; value: string | number }) 
     </div>
 );
 
+<<<<<<< HEAD
+=======
+// Client-only component to prevent hydration mismatch on relative times
+const ClientRelativeTime = ({ date }: { date: Date }) => {
+    const [relativeTime, setRelativeTime] = useState('');
+
+    useEffect(() => {
+        setRelativeTime(formatDistanceToNow(date, { addSuffix: true }));
+    }, [date]);
+
+    // Render a placeholder on the server and initial client render
+    if (!relativeTime) {
+        return <span>...</span>;
+    }
+
+    return <span>{relativeTime}</span>;
+};
+
+
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 const ReportCard = ({ session, sessionResults, user, className, defaultTerm }: { session: string, sessionResults: AcademicResult[], user: User, className: string, defaultTerm: '1st' | '2nd' | '3rd' }) => {
     
     const resultsByTerm = sessionResults.reduce((acc, result) => {
@@ -259,7 +283,11 @@ export default function ResultsView() {
                         <CardTitle>Session {session}</CardTitle>
                         <CardContent className="p-0 pt-2 flex items-center text-xs text-muted-foreground">
                             <Calendar className="mr-2 h-4 w-4" />
+<<<<<<< HEAD
                             <span>Last updated {createdAt ? formatDistanceToNow(createdAt.toDate(), { addSuffix: true }) : 'recently'}</span>
+=======
+                            {createdAt ? <ClientRelativeTime date={createdAt.toDate()} /> : <span>Last updated recently</span>}
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
                         </CardContent>
                     </CardHeader>
                     <CardFooter className="mt-auto flex flex-col items-stretch gap-2">

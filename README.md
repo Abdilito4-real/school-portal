@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Campus Hub: Modern Student Portal
 
 Campus Hub is a comprehensive campus management system built with Next.js 15, Firebase, and Genkit. It provides a robust interface for administrators to manage students, academic results, and fees, while offering students a personalized dashboard to track their progress.
@@ -54,3 +55,6 @@ This app is optimized for deployment on **Firebase App Hosting** or **Vercel**.
 
 ---
 *Built with passion for modern education management.*
+=======
+# Student Portal
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84

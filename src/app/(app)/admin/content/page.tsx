@@ -14,11 +14,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+<<<<<<< HEAD
 import { Loader2 } from 'lucide-react';
+=======
+import { Loader2, Wand2 } from 'lucide-react';
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Image from 'next/image';
 import { defaultSiteContent } from '@/lib/default-content';
+<<<<<<< HEAD
+=======
+import { generateSiteContent } from '@/ai/flows/generate-site-titles-flow';
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 
 
 const contentSchema = z.object({
@@ -68,6 +76,7 @@ const ImagePreview = ({ url, label }: { url: string | undefined | null; label: s
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+<<<<<<< HEAD
     setHasError(false);
   }, [url]);
 
@@ -77,6 +86,18 @@ const ImagePreview = ({ url, label }: { url: string | undefined | null; label: s
   }
 
   // If we reach here, 'url' is a valid string, so we can safely pass it to the Image component.
+=======
+    setHasError(false); // Reset error state if URL changes
+  }, [url]);
+
+  const isValidUrl = url && typeof url === 'string' && url.startsWith('http');
+
+  if (hasError || !isValidUrl) {
+    return <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted" />;
+  }
+
+  // At this point, TypeScript knows `url` is a valid string because of the `isValidUrl` check.
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
   return (
     <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted">
       <Image
@@ -130,6 +151,10 @@ export default function SiteContentPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+<<<<<<< HEAD
+=======
+  const [isGenerating, setIsGenerating] = useState(false);
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 
   const contentDocRef = useMemoFirebase(() => doc(firestore, 'site_content', 'homepage'), [firestore]);
   const { data: contentData, isLoading } = useDoc<SiteContent>(contentDocRef);
@@ -145,6 +170,65 @@ export default function SiteContentPage() {
     }
   }, [contentData, form]);
 
+<<<<<<< HEAD
+=======
+  async function handleGenerateContent() {
+    const schoolName = form.getValues('schoolName');
+    const missionStatement = form.getValues('missionText1');
+
+    if (!schoolName || !missionStatement) {
+        toast({
+            title: 'Missing Information',
+            description: 'Please provide a School Name and Mission Statement to generate content.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
+    setIsGenerating(true);
+    try {
+        const result = await generateSiteContent({
+            schoolName,
+            missionStatement,
+        });
+        
+        // Update form fields with the generated titles and text
+        form.setValue('heroTitle', result.heroTitle, { shouldDirty: true });
+        form.setValue('heroSubtitle', result.heroSubtitle, { shouldDirty: true });
+        form.setValue('missionTitle', result.missionTitle, { shouldDirty: true });
+        form.setValue('missionText1', result.missionText1, { shouldDirty: true });
+        form.setValue('missionText2', result.missionText2, { shouldDirty: true });
+        form.setValue('whyChooseTitle', result.whyChooseTitle, { shouldDirty: true });
+        form.setValue('feature1Title', result.feature1Title, { shouldDirty: true });
+        form.setValue('feature1Text', result.feature1Text, { shouldDirty: true });
+        form.setValue('feature2Title', result.feature2Title, { shouldDirty: true });
+        form.setValue('feature2Text', result.feature2Text, { shouldDirty: true });
+        form.setValue('feature3Title', result.feature3Title, { shouldDirty: true });
+        form.setValue('feature3Text', result.feature3Text, { shouldDirty: true });
+        form.setValue('academicsTitle', result.academicsTitle, { shouldDirty: true });
+        form.setValue('academicsText', result.academicsText, { shouldDirty: true });
+        form.setValue('communityTitle', result.communityTitle, { shouldDirty: true });
+        form.setValue('communityText', result.communityText, { shouldDirty: true });
+
+        toast({
+            title: 'Content Generated!',
+            description: 'The suggested content has been filled into the form. Review and save.',
+        });
+
+    } catch (error) {
+        console.error("Failed to generate content:", error);
+        toast({
+            title: 'Generation Failed',
+            description: 'Could not generate content. Please try again later.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsGenerating(false);
+    }
+  }
+
+
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
   async function onSubmit(values: z.infer<typeof contentSchema>) {
     setIsSubmitting(true);
     try {
@@ -158,6 +242,7 @@ export default function SiteContentPage() {
             return;
         }
 
+<<<<<<< HEAD
         type ValuesType = z.infer<typeof contentSchema>;
         const dataToSave = Object.keys(dirtyFields).reduce((acc, key) => {
             const k = key as keyof ValuesType;
@@ -169,6 +254,16 @@ export default function SiteContentPage() {
 
 
         await setDoc(contentDocRef, { ...dataToSave, updatedAt: serverTimestamp() }, { merge: true });
+=======
+        const dataToSave = Object.keys(dirtyFields).reduce((acc, key) => {
+            acc[key] = values[key];
+            return acc;
+        }, {} as any);
+
+        dataToSave.updatedAt = serverTimestamp();
+
+        await setDoc(contentDocRef, dataToSave, { merge: true });
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
         toast({
             title: 'Content Saved',
             description: 'Your homepage content has been updated successfully.',
@@ -207,6 +302,13 @@ export default function SiteContentPage() {
               Edit the text and images displayed on the public landing page.
             </p>
         </div>
+<<<<<<< HEAD
+=======
+        <Button onClick={handleGenerateContent} variant="outline" disabled={isGenerating || isSubmitting}>
+            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+            Generate Content with AI
+        </Button>
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
       </div>
 
       <Form {...form}>
@@ -265,7 +367,11 @@ export default function SiteContentPage() {
                   <FormItem><FormLabel>Feature 2 Title</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="feature2Text" render={({ field }) => (
+<<<<<<< HEAD
                   <FormItem className="mt-2"><FormLabel>Feature 2 Text</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormMessage>
+=======
+                  <FormItem className="mt-2"><FormLabel>Feature 2 Text</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
                 )} />
               </div>
               <div>
@@ -284,7 +390,11 @@ export default function SiteContentPage() {
               <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
             )} />
              <FormField control={form.control} name="academicsText" render={({ field }) => (
+<<<<<<< HEAD
               <FormItem><FormLabel>Text</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormMessage>
+=======
+              <FormItem><FormLabel>Text</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
             )} />
           </SectionCard>
           
@@ -293,7 +403,11 @@ export default function SiteContentPage() {
               <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
             )} />
              <FormField control={form.control} name="communityText" render={({ field }) => (
+<<<<<<< HEAD
               <FormItem><FormLabel>Text</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormMessage>
+=======
+              <FormItem><FormLabel>Text</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
             )} />
           </SectionCard>
 

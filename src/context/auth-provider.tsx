@@ -146,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     if (!auth) throw new Error("Auth service not available");
+<<<<<<< HEAD
     
     // Add a more specific check for configuration issues.
     // This provides a better error message if .env variables are missing.
@@ -153,6 +154,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Firebase configuration is missing. Please ensure your environment variables are set correctly.");
     }
 
+=======
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
     await signInWithEmailAndPassword(auth, email, password);
   };
 

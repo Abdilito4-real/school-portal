@@ -1,11 +1,22 @@
 'use server';
 /**
+<<<<<<< HEAD
  * @fileOverview A server action for securely deleting a Firebase Authentication
  * user and their corresponding Firestore document and sub-collections.
  */
 
 import { z } from 'zod';
 import { admin, getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
+=======
+ * @fileOverview A Genkit flow for securely deleting a Firebase Authentication
+ * user and their corresponding Firestore document and sub-collections,
+ * including global denormalized records.
+ */
+
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
+import { admin } from '@/lib/firebase-admin';
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 
 // Input schema for deleting a student
 const DeleteStudentInputSchema = z.object({
@@ -13,7 +24,11 @@ const DeleteStudentInputSchema = z.object({
 });
 export type DeleteStudentInput = z.infer<typeof DeleteStudentInputSchema>;
 
+<<<<<<< HEAD
 // Output schema for the result
+=======
+// Output schema for the flow result
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 const DeleteStudentOutputSchema = z.object({
   success: z.boolean(),
   error: z.string().optional(),
@@ -64,6 +79,7 @@ async function deleteFromGlobalCollection(db: admin.firestore.Firestore, collect
 }
 
 
+<<<<<<< HEAD
 // Exported function to be called from the client
 export async function deleteStudent(input: DeleteStudentInput): Promise<DeleteStudentOutput> {
   const parsedInput = DeleteStudentInputSchema.safeParse(input);
@@ -140,3 +156,83 @@ export async function deleteStudent(input: DeleteStudentInput): Promise<DeleteSt
     return { success: false, error: errorMessage };
   }
 }
+=======
+// Exported wrapper function to be called from the client
+export async function deleteStudent(input: DeleteStudentInput): Promise<DeleteStudentOutput> {
+  return deleteStudentFlow(input);
+}
+
+
+// The main Genkit flow definition
+const deleteStudentFlow = ai.defineFlow(
+  {
+    name: 'deleteStudentFlow',
+    inputSchema: DeleteStudentInputSchema,
+    outputSchema: DeleteStudentOutputSchema,
+  },
+  async (input) => {
+      try {
+        const db = admin.firestore();
+        const { uid } = input;
+        
+        console.log('Starting deletion for student UID:', uid);
+
+        // 1. Delete Firestore data first
+        const studentDocRef = db.collection('students').doc(uid);
+        const studentDoc = await studentDocRef.get();
+        
+        if (!studentDoc.exists) {
+          // If student doc is gone but auth user might exist, still try to delete auth user
+          console.warn('Student document not found, proceeding to delete auth user.');
+        } else {
+            await studentDocRef.delete();
+            console.log('Deleted student document');
+        }
+        
+        // Recursively delete private user data
+        const userPath = `users/${uid}`;
+        await deleteCollection(db, `${userPath}/academicResults`, 50);
+        console.log('Deleted academicResults subcollection');
+        
+        await deleteCollection(db, `${userPath}/fees`, 50);
+        console.log('Deleted fees subcollection');
+        
+        // Delete from global collections
+        await deleteFromGlobalCollection(db, 'academicResults', 'studentId', uid);
+        console.log('Deleted from global academicResults');
+        
+        await deleteFromGlobalCollection(db, 'fees', 'studentId', uid);
+        console.log('Deleted from global fees');
+
+        // Delete admin role if it exists
+        const adminRoleRef = db.collection('roles_admin').doc(uid);
+        if ((await adminRoleRef.get()).exists) {
+            await adminRoleRef.delete();
+            console.log('Deleted admin role document');
+        }
+        
+        // 2. Delete the user from Firebase Authentication
+        await admin.auth().deleteUser(uid);
+        console.log('Deleted user from Firebase Auth');
+
+        return { success: true };
+
+      } catch (error: any) {
+        console.error('Error in deleteStudentFlow:', error);
+        
+        let errorMessage = 'An unexpected error occurred during user deletion.';
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = 'User not found in Firebase Authentication. The associated database records may have been deleted.'
+            // Still return success if the user is already gone from auth, as the goal is achieved.
+            return { success: true };
+        } else if (error.code) {
+          errorMessage = `Error (${error.code}): ${error.message}`;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        return { success: false, error: errorMessage };
+      }
+  }
+);
+>>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
