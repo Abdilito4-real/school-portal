@@ -7,26 +7,15 @@ import { getFirestore } from 'firebase/firestore'
 
 /**
  * Initializes Firebase for the client-side.
- * Gracefully handles missing config during build time.
+ * Uses hardcoded configuration for stability.
  */
 export function initializeFirebase() {
-  // If we don't have an API key (e.g., during build), return dummy SDKs
-  // This prevents the 'app/no-options' error from crashing the build.
-  if (!firebaseConfig.apiKey) {
-    if (process.env.NODE_ENV === 'production') {
-      console.warn('Firebase client config is missing API key during build.');
-    }
-    return {
-      firebaseApp: null as any,
-      auth: null as any,
-      firestore: null as any,
-    };
-  }
-  
+  // Check if we have an app already initialized
   if (getApps().length) {
     return getSdks(getApp());
   }
 
+  // Initialize with the provided configuration
   const firebaseApp = initializeApp(firebaseConfig);
   return getSdks(firebaseApp);
 }
