@@ -1,4 +1,3 @@
-// FULLY CORRECTED VERSION - Cleaned from merge conflicts
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
