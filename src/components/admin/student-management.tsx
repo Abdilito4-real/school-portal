@@ -43,7 +43,6 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { Textarea } from '../ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import type { WorkBook } from 'xlsx';
 
 // ===================== SCHEMAS =====================
 
@@ -85,12 +84,6 @@ const singleResultSchema = z.object({
     position: z.string().optional(),
     comments: z.string().optional(),
 });
-
-const bulkUploadSchema = z.object({
-  term: z.enum(['1st', '2nd', '3rd']),
-  year: z.coerce.number().int().min(2000).max(new Date().getFullYear() + 1),
-});
-
 
 // ===================== STUDENT FORM =====================
 
@@ -852,115 +845,6 @@ function FeeForm({ student, setOpen }: { student: Student; setOpen: (open: boole
 }
 
 
-// ===================== BULK UPLOAD FORM =====================
-
-function BulkResultUploadForm({ students, studentClass, setOpen }: { students: Student[], studentClass: Class, setOpen: (open: boolean) => void }) {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [parsedData, setParsedData] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const form = useForm<z.infer<typeof bulkUploadSchema>>({
-    resolver: zodResolver(bulkUploadSchema),
-    defaultValues: { term: '1st', year: new Date().getFullYear() },
-  });
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    setIsProcessing(true);
-    setError(null);
-    try {
-      const XLSX = await import('xlsx');
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data) as WorkBook;
-      const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-      if (json.length === 0 || !json[0].hasOwnProperty('studentId')) throw new Error("Invalid format.");
-      setParsedData(json);
-    } catch (err: any) {
-      setError(err.message);
-      setFileName(null);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const onSubmit = async (values: z.infer<typeof bulkUploadSchema>) => {
-    setIsProcessing(true);
-    const batch = writeBatch(firestore);
-    const subjectsInClass = studentClass?.subjects || [];
-    try {
-        for (const row of parsedData) {
-            const { studentId, position, comments, ...subjectGrades } = row as any;
-            for (const subjectName of subjectsInClass) {
-                const grade = subjectGrades[subjectName];
-                if (grade && ['A', 'B', 'C', 'D', 'F'].includes(grade.toString().toUpperCase())) {
-                    const resultDocRef = doc(collection(firestore, `users/${studentId}/academicResults`));
-                    const finalData = {
-                        id: resultDocRef.id,
-                        studentId: studentId.toString(),
-                        term: values.term,
-                        year: values.year,
-                        className: subjectName,
-                        grade: grade.toString().toUpperCase(),
-                        createdAt: serverTimestamp(),
-                        position: position?.toString() || '',
-                        comments: comments?.toString() || '',
-                    };
-                    batch.set(resultDocRef, finalData);
-                    batch.set(doc(firestore, 'academicResults', resultDocRef.id), finalData);
-                }
-            }
-        }
-        await batch.commit();
-        toast({ title: "Upload Successful" });
-        setOpen(false);
-    } catch (e: any) {
-        toast({ title: "Upload Failed", variant: "destructive" });
-    } finally {
-        setIsProcessing(false);
-    }
-  };
-  
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Bulk Upload Results</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-4 pt-4">
-        <Form {...form}>
-          <form id="bulk-upload-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="term" render={({ field }) => (
-                      <FormItem><FormLabel>Term</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>
-                          {['1st', '2nd', '3rd'].map(t => <SelectItem key={t} value={t}>{t} Term</SelectItem>)}
-                      </SelectContent></Select><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="year" render={({ field }) => (
-                      <FormItem><FormLabel>Year</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-              </div>
-              <FormItem>
-                <FormLabel>File</FormLabel>
-                <div className="flex items-center gap-4">
-                    <Input id="bulk-file-upload" type="file" onChange={handleFileChange} />
-                </div>
-                {error && <FormMessage>{error}</FormMessage>}
-            </FormItem>
-          </form>
-        </Form>
-      </div>
-      <DialogFooter className="pt-4">
-        <Button variant="ghost" onClick={() => setOpen(false)} disabled={isProcessing}>Cancel</Button>
-        <Button type="submit" form="bulk-upload-form" disabled={isProcessing || parsedData.length === 0}>Upload</Button>
-      </DialogFooter>
-    </>
-  );
-}
-
 // ===================== MAIN COMPONENT =====================
 
 export default function StudentManagement({ classId }: { classId: string }) {
@@ -979,13 +863,10 @@ export default function StudentManagement({ classId }: { classId: string }) {
   const [isFeeFormOpen, setFeeFormOpen] = useState(false);
   const [isManageResultsOpen, setManageResultsOpen] = useState(false);
   const [isEditResultOpen, setEditResultOpen] = useState(false);
-  const [isBulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const studentsQuery = useMemoFirebase(() => user ? query(collection(firestore, 'students'), where('classId', '==', classId)) : null, [firestore, classId, user]);
   const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
-  const classDocRef = useMemoFirebase(() => user ? doc(firestore, 'classes', classId) : null, [firestore, classId, user]);
-  const { data: studentClass } = useDoc<Class>(classDocRef);
   const { data: allFees } = useCollection<FeeRecord>(useMemoFirebase(() => user ? collection(firestore, 'fees') : null, [firestore, user]));
 
   const feesByStudentId = useMemo(() => {
@@ -1038,9 +919,8 @@ export default function StudentManagement({ classId }: { classId: string }) {
         <Button asChild variant="outline"><Link href="/admin/classes"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <Input placeholder="Filter..." value={filter} onChange={e => setFilter(e.target.value)} className="w-40 sm:w-64" />
-          <Button onClick={() => setBulkUploadOpen(true)} variant="outline">Bulk Upload</Button>
-          <Button onClick={() => setClassResultFormOpen(true)} variant="outline">Manual Upload</Button>
-          <Button onClick={() => { setSelectedStudent(null); setStudentFormOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Create</Button>
+          <Button onClick={() => setClassResultFormOpen(true)} variant="outline">Bulk Upload Results</Button>
+          <Button onClick={() => { setSelectedStudent(null); setStudentFormOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Create Student</Button>
         </div>
       </div>
 
@@ -1081,7 +961,7 @@ export default function StudentManagement({ classId }: { classId: string }) {
       </Dialog>
       
       <Dialog open={isClassResultFormOpen} onOpenChange={setClassResultFormOpen}>
-        <DialogContent className="sm:max-w-4xl h-[90vh]">{isClassResultFormOpen && students && studentClass && <ClassResultForm students={students} studentClass={studentClass} setOpen={setClassResultFormOpen} />}</DialogContent>
+        <DialogContent className="sm:max-w-4xl h-[90vh]">{isClassResultFormOpen && students && <ClassResultForm students={students} studentClass={{ id: classId, name: 'Current Class', description: '', subjects: ['Math', 'English', 'Science'] } as Class} setOpen={setClassResultFormOpen} />}</DialogContent>
       </Dialog>
       
       <Dialog open={isFeeFormOpen} onOpenChange={setFeeFormOpen}>
@@ -1103,10 +983,6 @@ export default function StudentManagement({ classId }: { classId: string }) {
 
       <Dialog open={isEditResultOpen} onOpenChange={setEditResultOpen}>
           <DialogContent>{isEditResultOpen && resultToEdit && <EditResultForm result={resultToEdit} setOpen={setEditResultOpen} />}</DialogContent>
-      </Dialog>
-
-      <Dialog open={isBulkUploadOpen} onOpenChange={setBulkUploadOpen}>
-        <DialogContent className="sm:max-w-2xl">{isBulkUploadOpen && students && studentClass && <BulkResultUploadForm students={students} studentClass={studentClass} setOpen={setBulkUploadOpen} />}</DialogContent>
       </Dialog>
       
       {/* CONFIRMATIONS */}

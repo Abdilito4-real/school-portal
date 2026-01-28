@@ -58,7 +58,7 @@ export default async function HomePage() {
               {content.heroTitle}
             </h1>
             <p className="max-w-2xl mx-auto text-lg md:text-xl text-primary-foreground/90">
-              {content.heroSubtitle}
+              {content.heroSubtitle} Discover a world-class educational journey.
             </p>
             <div className="flex justify-center gap-4">
               <Button asChild size="lg">

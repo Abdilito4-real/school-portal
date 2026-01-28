@@ -206,7 +206,7 @@ export default function ClassManagement() {
             <AlertDialogHeader><AlertDialogTitle>Delete Class?</AlertDialogTitle><AlertDialogDescription>This removes class {classToDelete?.name}. Ensure no students are assigned before deleting.</AlertDialogDescription></AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={performDelete} className={buttonVariants({ variant: 'destructive' })} disabled={isDeleting || (!!classToDelete && (studentCountByClass[classToDelete.id] || 0) > 0)}>Delete</AlertDialogAction>
+                <AlertDialogAction onClick={performDelete} className={buttonVariants({ variant: 'destructive' })} disabled={isDeleting || !!(classToDelete && (studentCountByClass[classToDelete.id] || 0) > 0)}>Delete</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
