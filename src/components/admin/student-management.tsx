@@ -889,13 +889,11 @@ function FeeForm({ student, setOpen }: { student: Student; setOpen: (open: boole
         const amountPaid = values.amountPaid;
         const balanceRemaining = totalAmount - amountPaid;
 
-        let calculatedStatus: 'Paid' | 'Pending' | 'Partial';
+        let calculatedStatus: 'Paid' | 'Pending' | 'Partial' = 'Pending';
         if (balanceRemaining <= 0) {
             calculatedStatus = 'Paid';
         } else if (amountPaid > 0) {
-            status = 'Partial';
-        } else {
-            status = 'Pending';
+            calculatedStatus = 'Partial';
         }
 
         const feeDocRef = currentFee ? 
@@ -919,23 +917,23 @@ function FeeForm({ student, setOpen }: { student: Student; setOpen: (open: boole
             feeData.paidDate = new Date().toISOString();
         }
         
-        await setDoc(feeDocRef, feeData, { merge: true }).catch(error => {
+        await setDoc(feeDocRef, feeData, { merge: true }).catch(async (error) => {
             const permissionError = new FirestorePermissionError({
                 path: feeDocRef.path,
                 operation: 'write',
                 requestResourceData: feeData,
-            });
+            } satisfies SecurityRuleContext);
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         });
         
         const globalFeeRef = doc(firestore, 'fees', feeDocRef.id);
-        await setDoc(globalFeeRef, feeData, { merge: true }).catch(error => {
+        await setDoc(globalFeeRef, feeData, { merge: true }).catch(async (error) => {
             const permissionError = new FirestorePermissionError({
                 path: globalFeeRef.path,
                 operation: 'write',
                 requestResourceData: feeData,
-            });
+            } satisfies SecurityRuleContext);
             errorEmitter.emit('permission-error', permissionError);
         });
         
@@ -945,6 +943,7 @@ function FeeForm({ student, setOpen }: { student: Student; setOpen: (open: boole
         });
         setOpen(false);
       } catch (error) {
+        console.error("Fee update error:", error);
         toast({
           title: 'Error',
           description: 'Failed to update fee status. Check permissions.',
