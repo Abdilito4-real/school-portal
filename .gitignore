@@ -57,3 +57,7 @@ next-env.d.ts
 # Sensitive files
 firebase-service-account.json
 >>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
+firebase-service-account.json
+.env.backup
+.env.local
+.env
