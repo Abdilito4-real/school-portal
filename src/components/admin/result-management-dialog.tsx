@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import { doc, setDoc, serverTimestamp, collection, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, FileSpreadsheet, Trash2, Plus } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { Student, AcademicResult, Class } from '@/lib/types';
 import * as XLSX from 'xlsx';
 
@@ -22,9 +23,8 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
     const resultsColRef = useMemoFirebase(() => collection(firestore, 'users', student.id, 'academicResults'), [firestore, student.id]);
     const { data: results, isLoading } = useCollection<AcademicResult>(resultsColRef);
 
-    const classRef = useMemoFirebase(() => doc(firestore, 'classes', student.classId), [firestore, student.classId]);
-    const { data: classData } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
-    const studentClass = classData?.find(c => c.id === student.classId);
+    const { data: classes } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
+    const studentClass = classes?.find(c => c.id === student.classId);
 
     const [newResult, setNewResult] = useState({
         className: '',
@@ -112,7 +112,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
 
             <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
                 <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">Quick Add Result</h4>
+                    <h4 className="font-semibold text-sm">Quick Add Result</h4>
                     <div className="flex gap-2">
                         <Label htmlFor="excel-upload" className="cursor-pointer">
                             <div className={buttonVariants({ variant: 'outline', size: 'sm' })}>
@@ -145,7 +145,9 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                             <SelectItem value="3rd">3rd Term</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button onClick={handleAddResult} disabled={isSubmitting}><Plus className="h-4 w-4" /></Button>
+                    <Button onClick={handleAddResult} disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    </Button>
                 </div>
             </div>
 
@@ -167,7 +169,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                             <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No results found.</TableCell></TableRow>
                         ) : results?.sort((a, b) => b.year - a.year).map(res => (
                             <TableRow key={res.id}>
-                                <TableCell>{res.className}</TableCell>
+                                <TableCell className="font-medium">{res.className}</TableCell>
                                 <TableCell><Badge variant="secondary">{res.grade}</Badge></TableCell>
                                 <TableCell>{res.term}</TableCell>
                                 <TableCell>{res.year}</TableCell>
