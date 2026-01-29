@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileSpreadsheet, Trash2, Plus, Info } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, Plus, Info, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Student, AcademicResult, Class } from '@/lib/types';
@@ -33,6 +33,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
         term: '1st' as any,
         year: new Date().getFullYear(),
         comments: '',
+        position: '',
     });
 
     async function handleAddResult() {
@@ -48,7 +49,8 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
             };
             await setDoc(doc(firestore, 'users', student.id, 'academicResults', id), data);
             await setDoc(doc(firestore, 'academicResults', id), data);
-            toast({ title: 'Result added' });
+            toast({ title: 'Result added successfully' });
+            setNewResult(prev => ({ ...prev, className: '', comments: '', position: '' }));
         } catch (e) {
             toast({ title: 'Failed to add result', variant: 'destructive' });
         } finally {
@@ -88,6 +90,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                         term: (row.Term || row.term || '1st').toString(),
                         year: Number(row.Year || row.year || new Date().getFullYear()),
                         comments: row.Comments || row.comments || '',
+                        position: (row.Position || row.position || '').toString(),
                         studentId: student.id,
                         createdAt: serverTimestamp(),
                     };
@@ -109,21 +112,28 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
         <div className="space-y-6">
             <DialogHeader>
                 <DialogTitle>Academic Results: {student.firstName} {student.lastName}</DialogTitle>
-                <DialogDescription>View history or upload new results manually or via Excel.</DialogDescription>
+                <DialogDescription>Manage performance records for individual terms and years.</DialogDescription>
             </DialogHeader>
 
             <Alert className="bg-primary/5 border-primary/20">
                 <Info className="h-4 w-4" />
-                <AlertTitle>Bulk Upload Format</AlertTitle>
-                <AlertDescription>
-                    Excel file should have columns: <span className="font-mono font-bold">Subject, Grade, Term, Year</span>. 
-                    <br />Valid terms are <span className="font-semibold italic">1st, 2nd, 3rd</span>.
+                <AlertTitle>Bulk Upload Requirements</AlertTitle>
+                <AlertDescription className="space-y-2">
+                    <p>Excel file must contain these exact column headers:</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold text-primary">
+                        <span>Subject</span>
+                        <span>Grade (A-F)</span>
+                        <span>Term (1st, 2nd, 3rd)</span>
+                        <span>Year (e.g., 2024)</span>
+                        <span>Position (Optional)</span>
+                        <span>Comments (Optional)</span>
+                    </div>
                 </AlertDescription>
             </Alert>
 
             <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
                 <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-sm">Quick Add Result</h4>
+                    <h4 className="font-semibold text-sm">Add New Entry</h4>
                     <div className="flex gap-2">
                         <Label htmlFor="excel-upload" className="cursor-pointer">
                             <div className={buttonVariants({ variant: 'outline', size: 'sm' })}>
@@ -133,7 +143,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                         <Input id="excel-upload" type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
                     </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                     <div className="md:col-span-2">
                         <Select value={newResult.className} onValueChange={v => setNewResult({...newResult, className: v})}>
                             <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
@@ -143,21 +153,27 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                         </Select>
                     </div>
                     <Select value={newResult.grade} onValueChange={v => setNewResult({...newResult, grade: v as any})}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Grade" /></SelectTrigger>
                         <SelectContent>
                             {['A', 'B', 'C', 'D', 'F'].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <Select value={newResult.term} onValueChange={v => setNewResult({...newResult, term: v as any})}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Term" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="1st">1st Term</SelectItem>
                             <SelectItem value="2nd">2nd Term</SelectItem>
                             <SelectItem value="3rd">3rd Term</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button onClick={handleAddResult} disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    <Input 
+                        type="number" 
+                        placeholder="Year" 
+                        value={newResult.year} 
+                        onChange={e => setNewResult({...newResult, year: Number(e.target.value)})} 
+                    />
+                    <Button onClick={handleAddResult} disabled={isSubmitting} className="w-full">
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />} Add
                     </Button>
                 </div>
             </div>
@@ -177,7 +193,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                         {isLoading ? (
                             <TableRow><TableCell colSpan={5} className="text-center py-4"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
                         ) : results?.length === 0 ? (
-                            <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No results found.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No records found for this student.</TableCell></TableRow>
                         ) : results?.sort((a, b) => b.year - a.year || (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).map(res => (
                             <TableRow key={res.id}>
                                 <TableCell className="font-medium">{res.className}</TableCell>

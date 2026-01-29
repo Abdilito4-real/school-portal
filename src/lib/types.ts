@@ -1,5 +1,3 @@
-
-import type { User as FirebaseUser } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 
 export interface User {
@@ -89,4 +87,3 @@ export interface SiteContent {
   instagramUrl?: string;
   linkedinUrl?: string;
 }
-    
