@@ -15,19 +15,9 @@ export function initializeFirebase() {
     return getSdks(existingApp);
   }
 
-  // Check if the configuration is valid before initializing
-  // We check for both existence and the literal string "undefined" which can happen in some build environments
-  const isConfigValid = !!firebaseConfig.apiKey && 
-                        firebaseConfig.apiKey !== 'undefined' && 
-                        firebaseConfig.apiKey !== '';
+  const isConfigValid = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined';
 
   if (!isConfigValid) {
-    if (typeof window !== 'undefined') {
-      console.warn(
-        'Firebase Configuration Missing: The app is running without client-side Firebase credentials. ' +
-        'Please ensure NEXT_PUBLIC_FIREBASE_API_KEY and other variables are set in Vercel.'
-      );
-    }
     return {
       firebaseApp: null,
       auth: null,
@@ -51,7 +41,15 @@ export function initializeFirebase() {
 /**
  * Returns the Auth and Firestore instances for a given FirebaseApp.
  */
-export function getSdks(firebaseApp: FirebaseApp) {
+export function getSdks(firebaseApp: FirebaseApp | null) {
+  if (!firebaseApp) {
+    return {
+      firebaseApp: null,
+      auth: null,
+      firestore: null,
+    };
+  }
+
   let auth: Auth | null = null;
   let firestore: Firestore | null = null;
 
