@@ -17,6 +17,7 @@ export const firebaseConfig = {
 export const isFirebaseConfigValid = !!(
   firebaseConfig.apiKey && 
   firebaseConfig.apiKey !== 'undefined' &&
+  firebaseConfig.apiKey.trim() !== '' &&
   firebaseConfig.apiKey.length > 10
 );
 
@@ -27,7 +28,9 @@ if (!isFirebaseConfigValid && typeof window !== 'undefined') {
   );
 }
 
-const app = getApps().length === 0 ? (isFirebaseConfigValid ? initializeApp(firebaseConfig) : null) : getApp();
+const app = getApps().length === 0 
+  ? (isFirebaseConfigValid ? initializeApp(firebaseConfig) : null) 
+  : getApp();
 
 export { app };
 export default app;
