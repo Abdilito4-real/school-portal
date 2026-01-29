@@ -15,7 +15,7 @@ export const firebaseConfig = {
 export const isFirebaseConfigValid = !!(
   firebaseConfig.apiKey && 
   firebaseConfig.apiKey !== 'undefined' &&
-  firebaseConfig.apiKey.trim() !== ''
+  firebaseConfig.apiKey !== ''
 );
 
 const app = getApps().length === 0 

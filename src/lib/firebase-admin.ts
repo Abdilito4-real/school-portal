@@ -11,7 +11,7 @@ const initializeAdminApp = () => {
 
   const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  if (!serviceAccountVar || serviceAccountVar === 'undefined') {
+  if (!serviceAccountVar || serviceAccountVar === 'undefined' || serviceAccountVar === '') {
     console.warn('FIREBASE_SERVICE_ACCOUNT_JSON is not defined. Admin features will be disabled.');
     return null;
   }
