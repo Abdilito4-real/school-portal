@@ -18,7 +18,6 @@ export default function FeeManagementDialog({ student, onClose }: { student: Stu
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Fetch student's specific fee records
     const feesColRef = useMemoFirebase(() => collection(firestore, 'users', student.id, 'fees'), [firestore, student.id]);
     const { data: feeRecords, isLoading } = useCollection<FeeRecord>(feesColRef);
 
@@ -48,10 +47,7 @@ export default function FeeManagementDialog({ student, onClose }: { student: Stu
                 createdAt: serverTimestamp(),
             };
 
-            // 1. Save to private student collection
             await setDoc(doc(firestore, 'users', student.id, 'fees', feeId), feeData);
-            
-            // 2. Save to global aggregation collection
             await setDoc(doc(firestore, 'fees', feeId), feeData);
 
             toast({ title: 'Fee record updated successfully' });

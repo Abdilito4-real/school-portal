@@ -1,9 +1,8 @@
 import * as admin from 'firebase-admin';
 
 /**
- * Initializes the Firebase Admin SDK.
- * It expects a single environment variable `FIREBASE_SERVICE_ACCOUNT_JSON`
- * containing the full JSON string of the service account key.
+ * Initializes the Firebase Admin SDK securely using environment variables.
+ * Parses the JSON service account and fixes private key newline formatting.
  */
 const initializeAdminApp = () => {
   if (admin.apps.length > 0) {
@@ -20,7 +19,6 @@ const initializeAdminApp = () => {
   try {
     const serviceAccount = JSON.parse(serviceAccountVar);
     
-    // Ensure the private key is formatted correctly for environment variables
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }

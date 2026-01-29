@@ -1,8 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 
 /**
- * Firebase client-side configuration.
- * All values are fetched strictly from environment variables starting with NEXT_PUBLIC_.
+ * Firebase client-side configuration using environment variables.
  */
 export const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,7 +12,6 @@ export const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Check if the configuration is valid (not empty, not "undefined" string)
 export const isFirebaseConfigValid = !!(
   firebaseConfig.apiKey && 
   firebaseConfig.apiKey !== 'undefined' &&
