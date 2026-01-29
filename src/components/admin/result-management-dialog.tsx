@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileSpreadsheet, Trash2, Plus } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, Plus, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Student, AcademicResult, Class } from '@/lib/types';
 import * as XLSX from 'xlsx';
 
@@ -82,9 +83,9 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                 for (const row of data as any[]) {
                     const id = `res_bulk_${Math.random().toString(36).substr(2, 9)}`;
                     const payload = {
-                        className: row.Subject || row.className,
-                        grade: (row.Grade || row.grade || 'C').toUpperCase(),
-                        term: row.Term || row.term || '1st',
+                        className: row.Subject || row.subject || row.className || 'Unknown',
+                        grade: (row.Grade || row.grade || 'C').toString().toUpperCase(),
+                        term: (row.Term || row.term || '1st').toString(),
                         year: Number(row.Year || row.year || new Date().getFullYear()),
                         comments: row.Comments || row.comments || '',
                         studentId: student.id,
@@ -95,6 +96,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                 }
                 toast({ title: `Successfully uploaded ${data.length} results` });
             } catch (err) {
+                console.error(err);
                 toast({ title: 'Bulk upload failed', variant: 'destructive' });
             } finally {
                 setIsSubmitting(false);
@@ -109,6 +111,15 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                 <DialogTitle>Academic Results: {student.firstName} {student.lastName}</DialogTitle>
                 <DialogDescription>View history or upload new results manually or via Excel.</DialogDescription>
             </DialogHeader>
+
+            <Alert className="bg-primary/5 border-primary/20">
+                <Info className="h-4 w-4" />
+                <AlertTitle>Bulk Upload Format</AlertTitle>
+                <AlertDescription>
+                    Excel file should have columns: <span className="font-mono font-bold">Subject, Grade, Term, Year</span>. 
+                    <br />Valid terms are <span className="font-semibold italic">1st, 2nd, 3rd</span>.
+                </AlertDescription>
+            </Alert>
 
             <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
                 <div className="flex items-center justify-between">
@@ -167,7 +178,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                             <TableRow><TableCell colSpan={5} className="text-center py-4"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
                         ) : results?.length === 0 ? (
                             <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No results found.</TableCell></TableRow>
-                        ) : results?.sort((a, b) => b.year - a.year).map(res => (
+                        ) : results?.sort((a, b) => b.year - a.year || (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).map(res => (
                             <TableRow key={res.id}>
                                 <TableCell className="font-medium">{res.className}</TableCell>
                                 <TableCell><Badge variant="secondary">{res.grade}</Badge></TableCell>
