@@ -157,8 +157,8 @@ function StudentForm({
       let errorMessage = e.message || 'An unexpected error occurred.';
       
       if (e.message?.includes('auth/email-already-in-use') || 
-          e.message?.includes('email-already-exists') ||
-          e.message?.includes('already in use')) {
+          (e.message?.includes('email-already-exists')) ||
+          (e.message?.includes('already in use'))) {
         errorMessage = 'This email address is already in use by another account.';
       } else if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
         errorMessage = 'Permission Denied: You do not have permission to perform this action.';
