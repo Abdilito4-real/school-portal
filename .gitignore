@@ -1,16 +1,8 @@
-<<<<<<< HEAD
-=======
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
->>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 # dependencies
 /node_modules
 /.pnp
 .pnp.js
-<<<<<<< HEAD
-=======
 .yarn/install-state.gz
->>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
 
 # testing
 /coverage
@@ -32,15 +24,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-<<<<<<< HEAD
 .env*.local
 .env
-=======
+.env local
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
->>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
+.env.backup
 
 # vercel
 .vercel
@@ -48,16 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-<<<<<<< HEAD
-=======
 
 # studio
 .modified
 
 # Sensitive files
 firebase-service-account.json
->>>>>>> f3fc7ab7796ee56f68192834a35aa6e318beed84
-firebase-service-account.json
-.env.backup
-.env.local
-.env
