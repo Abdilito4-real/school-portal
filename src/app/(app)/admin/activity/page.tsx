@@ -23,19 +23,19 @@ import {
 export default function ActivityLogPage() {
   const firestore = useFirestore();
 
-  const feesQuery = useMemoFirebase(() => query(collection(firestore, 'fees'), orderBy('createdAt', 'desc')), [firestore]);
+  const feesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'fees'), orderBy('createdAt', 'desc')) : null, [firestore]);
   const { data: allFees, isLoading: isLoadingFees } = useCollection<FeeRecord>(feesQuery);
 
-  const announcementsQuery = useMemoFirebase(() => query(collection(firestore, 'announcements'), orderBy('createdAt', 'desc')), [firestore]);
+  const announcementsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'announcements'), orderBy('createdAt', 'desc')) : null, [firestore]);
   const { data: allAnnouncements, isLoading: isLoadingAnnouncements } = useCollection<Announcement>(announcementsQuery);
 
-  const resultsQuery = useMemoFirebase(() => query(collection(firestore, 'academicResults'), orderBy('createdAt', 'desc')), [firestore]);
+  const resultsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'academicResults'), orderBy('createdAt', 'desc')) : null, [firestore]);
   const { data: allResults, isLoading: isLoadingResults } = useCollection<AcademicResult>(resultsQuery);
 
-  const studentsQuery = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
+  const studentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]);
   const { data: allStudents, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
 
-  const classesQuery = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
+  const classesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'classes') : null, [firestore]);
   const { data: allClassData, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
 

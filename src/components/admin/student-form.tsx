@@ -48,7 +48,7 @@ export default function StudentForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const classesQuery = useMemoFirebase(() => user ? collection(firestore, 'classes') : null, [firestore, user]);
+  const classesQuery = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'classes') : null, [firestore, user]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
   
   const form = useForm<z.infer<typeof studentSchema>>({
@@ -59,6 +59,10 @@ export default function StudentForm({
   });
 
   async function onSubmit(values: z.infer<typeof studentSchema>) {
+    if (!firestore) {
+        setFormError("Firestore is not available.");
+        return;
+    }
     setIsSubmitting(true);
     setFormError(null);
   
