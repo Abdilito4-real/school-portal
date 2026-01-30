@@ -83,7 +83,7 @@ export default function StudentManagement({ classId }: { classId: string }) {
     
     const subjects = (classData?.subjects && classData.subjects.length > 0)
         ? classData.subjects
-        : ['Mathematics', 'English', 'Civic Education', 'Physics', 'Biology', 'Chemistry', 'Religious Stuc'];
+        : ['Mathematics', 'English', 'Civic Education', 'Physics', 'Biology', 'Chemistry', 'Religious Studies'];
 
     const templateData: any[] = students.map(s => {
         const row: any = {
@@ -158,7 +158,9 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
                         const grade = row[subject];
                         if (grade === undefined || grade === null || grade === '') continue;
 
-                        const resultId = `res_bulk_${Math.random().toString(36).substr(2, 9)}`;
+                        // Deterministic ID to prevent duplicates on re-upload
+                        const resultId = `res_${studentId}_${subject}_${selectedTerm}_${selectedYear}`.replace(/[^a-zA-Z0-9]/g, '_');
+
                         const payload = {
                             className: subject,
                             grade: grade.toString().toUpperCase(),
