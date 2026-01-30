@@ -18,7 +18,7 @@ export default function FeeManagementDialog({ student, onClose }: { student: Stu
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const feesColRef = useMemoFirebase(() => collection(firestore, 'users', student.id, 'fees'), [firestore, student.id]);
+    const feesColRef = useMemoFirebase(() => firestore ? collection(firestore, 'users', student.id, 'fees') : null, [firestore, student.id]);
     const { data: feeRecords, isLoading } = useCollection<FeeRecord>(feesColRef);
 
     const currentFee = feeRecords?.[0];
@@ -33,6 +33,10 @@ export default function FeeManagementDialog({ student, onClose }: { student: Stu
     });
 
     async function handleSave() {
+        if (!firestore) {
+            toast({ title: 'Firestore not available', variant: 'destructive' });
+            return;
+        }
         setIsSubmitting(true);
         try {
             const balanceRemaining = Math.max(0, form.amount - form.amountPaid);

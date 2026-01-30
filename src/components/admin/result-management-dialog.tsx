@@ -21,10 +21,10 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const resultsColRef = useMemoFirebase(() => collection(firestore, 'users', student.id, 'academicResults'), [firestore, student.id]);
+    const resultsColRef = useMemoFirebase(() => firestore ? collection(firestore, 'users', student.id, 'academicResults') : null, [firestore, student.id]);
     const { data: results, isLoading } = useCollection<AcademicResult>(resultsColRef);
 
-    const { data: classes } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
+    const { data: classes } = useCollection<Class>(useMemoFirebase(() => firestore ? collection(firestore, 'classes') : null, [firestore]));
     const studentClass = classes?.find(c => c.id === student.classId);
 
     const [newResult, setNewResult] = useState({
@@ -68,6 +68,10 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
     };
 
     async function handleAddResult() {
+        if (!firestore) {
+            toast({ title: 'Firestore not available', variant: 'destructive' });
+            return;
+        }
         if (!newResult.className) return toast({ title: 'Select a subject', variant: 'destructive' });
         setIsSubmitting(true);
         try {
@@ -90,6 +94,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
     }
 
     async function handleDelete(id: string) {
+        if (!firestore) return;
         try {
             await deleteDoc(doc(firestore, 'users', student.id, 'academicResults', id));
             await deleteDoc(doc(firestore, 'academicResults', id));
@@ -101,7 +106,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !firestore) return;
 
         const reader = new FileReader();
         reader.onload = async (evt) => {

@@ -81,6 +81,7 @@ function ClassForm({
       subjects: values.subjects?.map(s => s.value).filter(Boolean) || [],
     };
     try {
+      if (!firestore) throw new Error("Firestore not available");
       if (currentClass) {
         await updateDoc(doc(firestore, 'classes', currentClass.id), classData);
         toast({ title: 'Class Updated!' });
@@ -139,8 +140,8 @@ export default function ClassManagement() {
   const [classToDelete, setClassToDelete] = useState<Class | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
-  const { data: students } = useCollection<Student>(useMemoFirebase(() => collection(firestore, 'students'), [firestore]));
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => firestore ? collection(firestore, 'classes') : null, [firestore]));
+  const { data: students } = useCollection<Student>(useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]));
 
   const studentCountByClass = useMemo(() => {
     const acc: Record<string, number> = {};
@@ -154,7 +155,7 @@ export default function ClassManagement() {
   }, [classes]);
 
   const performDelete = async () => {
-      if (!classToDelete) return;
+      if (!classToDelete || !firestore) return;
       setIsDeleting(true);
       try {
           await deleteDoc(doc(firestore, 'classes', classToDelete.id));

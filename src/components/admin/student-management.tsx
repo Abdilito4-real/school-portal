@@ -100,7 +100,7 @@ export default function StudentManagement({ classId }: { classId: string }) {
 
   const handleBulkClassUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !firestore) return;
 
     const reader = new FileReader();
     reader.onload = async (evt) => {

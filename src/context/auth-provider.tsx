@@ -140,7 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const login = async (email: string, password: string) => {
-    if (!auth) throw new Error("Auth service not available");
+    if (!auth) {
+      throw new Error("Auth service not available. Check your Firebase configuration.");
+    }
     if (!auth.app.options.apiKey) {
       throw new Error("Firebase configuration is missing. Please check your config.");
     }
@@ -150,14 +152,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (!auth) return;
     setLoading(true);
-    await signOut(auth);
+    try {
+        await signOut(auth);
+    } catch (error) {
+        console.error("Logout failed:", error);
+    }
     setUser(null);
     setLoading(false);
     router.push('/');
   };
 
   const sendPasswordReset = async (email: string) => {
-    if (!auth) return;
+    if (!auth) {
+        throw new Error("Auth service not available.");
+    }
     await sendPasswordResetEmail(auth, email);
   }
 

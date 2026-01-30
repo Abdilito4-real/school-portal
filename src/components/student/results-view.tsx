@@ -191,12 +191,12 @@ export default function ResultsView() {
   const [selectedTerm, setSelectedTerm] = useState<'1st' | '2nd' | '3rd'>('1st');
 
   const resultsQuery = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'academicResults')) : null),
+    () => (user && firestore ? query(collection(firestore, 'users', user.uid, 'academicResults')) : null),
     [firestore, user]
   );
   const { data: studentResults, isLoading: isLoadingResults } = useCollection<AcademicResult>(resultsQuery);
 
-  const classesQuery = useMemoFirebase(() => user ? collection(firestore, 'classes') : null, [firestore, user]);
+  const classesQuery = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'classes') : null, [firestore, user]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
   const isLoading = isLoadingResults || isLoadingClasses;
