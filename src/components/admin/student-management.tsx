@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useCollection, useMemoFirebase, useFirestore } from '@/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { PlusCircle, Loader2, ArrowLeft, Edit, Trash2, BookOpen, CreditCard, Download, FileSpreadsheet } from 'lucide-react';
 import type { Student, FeeRecord } from '@/lib/types';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -30,6 +31,7 @@ import StudentForm from './student-form';
 import FeeManagementDialog from './fee-management-dialog';
 import ResultManagementDialog from './result-management-dialog';
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 
 export default function StudentManagement({ classId }: { classId: string }) {
   const firestore = useFirestore();
@@ -45,6 +47,7 @@ export default function StudentManagement({ classId }: { classId: string }) {
   const [resultStudent, setResultStudent] = useState<Student | null>(null);
   
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const studentsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -94,6 +97,53 @@ export default function StudentManagement({ classId }: { classId: string }) {
         description: "Fill this sheet to upload results for all students in this class."
     });
   };
+
+  const handleBulkClassUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        setIsUploading(true);
+        try {
+            let count = 0;
+            for (const row of data as any[]) {
+                const studentId = row['Student ID'] || row['studentId'];
+                if (!studentId) continue;
+
+                const resultId = `res_bulk_class_${Math.random().toString(36).substr(2, 9)}`;
+                const payload = {
+                    className: row.Subject || row.subject || 'Unknown',
+                    grade: (row['Grade (A-F)'] || row.grade || 'C').toString().toUpperCase(),
+                    term: (row['Term (1st, 2nd, 3rd)'] || row.term || '1st').toString(),
+                    year: Number(row.Year || row.year || new Date().getFullYear()),
+                    comments: row.Comments || row.comments || '',
+                    position: (row.Position || row.position || '').toString(),
+                    studentId,
+                    createdAt: serverTimestamp(),
+                };
+                
+                await setDoc(doc(firestore, 'users', studentId, 'academicResults', resultId), payload);
+                await setDoc(doc(firestore, 'academicResults', resultId), payload);
+                count++;
+            }
+            toast({ title: 'Success', description: `Successfully uploaded ${count} results for the class.` });
+        } catch (err) {
+            console.error(err);
+            toast({ title: 'Bulk upload failed', variant: 'destructive' });
+        } finally {
+            setIsUploading(false);
+            e.target.value = ''; // Reset input
+        }
+    };
+    reader.readAsBinaryString(file);
+  };
   
   const performDeleteStudent = async () => {
     if (!studentToDelete) return;
@@ -118,6 +168,15 @@ export default function StudentManagement({ classId }: { classId: string }) {
             <Button variant="outline" onClick={downloadClassListTemplate} disabled={isLoadingStudents || filteredStudents.length === 0}>
                 <Download className="mr-2 h-4 w-4" /> Download Class Template
             </Button>
+            <div className="flex items-center">
+                <Label htmlFor="bulk-class-upload" className="cursor-pointer">
+                    <div className={cn(buttonVariants({ variant: 'outline' }), isUploading && "opacity-50 pointer-events-none")}>
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                        Bulk Upload Class Results
+                    </div>
+                </Label>
+                <Input id="bulk-class-upload" type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkClassUpload} />
+            </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <Input placeholder="Search students..." value={filter} onChange={e => setFilter(e.target.value)} className="w-40 sm:w-64" />
