@@ -81,23 +81,26 @@ export default function StudentManagement({ classId }: { classId: string }) {
   const downloadClassListTemplate = () => {
     if (!students || students.length === 0) return;
     
-    const templateData: any[] = [];
-    const subjects = classData?.subjects || ['General'];
+    const subjects = (classData?.subjects && classData.subjects.length > 0)
+        ? classData.subjects
+        : ['Mathematics', 'English', 'Civic Education', 'Physics', 'Biology', 'Chemistry', 'Religious Stuc'];
 
-    students.forEach(s => {
+    const templateData: any[] = students.map(s => {
+        const row: any = {
+            'studentId': s.id,
+            'firstName': s.firstName,
+            'lastName': s.lastName,
+            'email': s.email || '',
+        };
+
+        // Add subject columns
         subjects.forEach(subject => {
-            templateData.push({
-                'Student ID': s.id,
-                'First Name': s.firstName,
-                'Last Name': s.lastName,
-                'Subject': subject,
-                'Grade (A-F)': '',
-                'Term (1st, 2nd, 3rd)': '1st',
-                'Year': new Date().getFullYear(),
-                'Position': '',
-                'Comments': ''
-            });
+            row[subject] = '';
         });
+
+        row['position'] = '';
+        row['comments'] = '';
+        return row;
     });
 
     const ws = XLSX.utils.json_to_sheet(templateData);
@@ -142,25 +145,35 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
                 const data = XLSX.utils.sheet_to_json(ws);
                 
                 let count = 0;
+                const nonSubjectKeys = ['studentId', 'firstName', 'lastName', 'email', 'position', 'comments', 'Student ID', 'First Name', 'Last Name', 'Email', 'Position', 'Comments'];
+
                 for (const row of data as any[]) {
-                    const studentId = row['Student ID'] || row['studentId'];
+                    const studentId = row['studentId'] || row['Student ID'];
                     if (!studentId) continue;
 
-                    const resultId = `res_bulk_${Math.random().toString(36).substr(2, 9)}`;
-                    const payload = {
-                        className: row.Subject || row.subject || 'Unknown',
-                        grade: (row['Grade (A-F)'] || row.grade || 'C').toString().toUpperCase(),
-                        term: selectedTerm,
-                        year: Number(selectedYear),
-                        comments: row.Comments || row.comments || '',
-                        position: (row.Position || row.position || '').toString(),
-                        studentId,
-                        createdAt: serverTimestamp(),
-                    };
+                    // Extract subjects - anything that's not in nonSubjectKeys
+                    const subjectsInRow = Object.keys(row).filter(key => !nonSubjectKeys.includes(key));
 
-                    await setDoc(doc(firestore, 'users', studentId, 'academicResults', resultId), payload);
-                    await setDoc(doc(firestore, 'academicResults', resultId), payload);
-                    count++;
+                    for (const subject of subjectsInRow) {
+                        const grade = row[subject];
+                        if (grade === undefined || grade === null || grade === '') continue;
+
+                        const resultId = `res_bulk_${Math.random().toString(36).substr(2, 9)}`;
+                        const payload = {
+                            className: subject,
+                            grade: grade.toString().toUpperCase(),
+                            term: selectedTerm,
+                            year: Number(selectedYear),
+                            comments: (row['comments'] || row['Comments'] || '').toString(),
+                            position: (row['position'] || row['Position'] || '').toString(),
+                            studentId,
+                            createdAt: serverTimestamp(),
+                        };
+
+                        await setDoc(doc(firestore, 'users', studentId, 'academicResults', resultId), payload);
+                        await setDoc(doc(firestore, 'academicResults', resultId), payload);
+                        count++;
+                    }
                 }
                 toast({ title: 'Upload Successful', description: `Uploaded ${count} results.` });
                 setOpen(false);

@@ -3,12 +3,15 @@
 import { GraduationCap } from "lucide-react";
 import { FirebaseClientProvider } from "@/firebase";
 import { AuthProvider } from "@/context/auth-provider";
+import { useSiteContent } from "@/context/site-content-provider";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { content } = useSiteContent();
+
   return (
     <FirebaseClientProvider>
       <AuthProvider>
@@ -19,7 +22,7 @@ export default function AuthLayout({
                 <GraduationCap className="h-8 w-8" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 font-headline">
-                Campus Hub
+                {content.schoolName || 'Campus Hub'}
               </h1>
               <p className="text-muted-foreground">Welcome to your campus portal</p>
             </div>

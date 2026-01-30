@@ -8,6 +8,8 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import type { SiteContent } from '@/lib/types';
 import { cache } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 const getHomepageContent = cache(async (): Promise<SiteContent> => {
   try {
     const db = getAdminDb();
