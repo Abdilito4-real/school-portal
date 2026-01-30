@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { doc, setDoc, serverTimestamp, collection } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,19 @@ export default function FeeManagementDialog({ student, onClose }: { student: Stu
         amountPaid: currentFee?.amountPaid || 0,
         dueDate: currentFee?.dueDate || format(new Date(), 'yyyy-MM-dd'),
     });
+
+    useEffect(() => {
+        const calculateStatus = () => {
+            if (form.amountPaid <= 0) return 'Pending';
+            if (form.amountPaid >= form.amount) return 'Paid';
+            return 'Partial';
+        };
+
+        const newStatus = calculateStatus();
+        if (newStatus !== form.status) {
+            setForm(prev => ({ ...prev, status: newStatus as any }));
+        }
+    }, [form.amount, form.amountPaid, form.status]);
 
     async function handleSave() {
         if (!firestore) {
