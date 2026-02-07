@@ -23,7 +23,7 @@ export interface AcademicResult {
   studentId: string;
   term: '1st' | '2nd' | '3rd';
   year: number;
-  subjects: {
+  subjects?: {
     subject: string;
     grade: string;
   }[];

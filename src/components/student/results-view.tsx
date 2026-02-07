@@ -130,7 +130,7 @@ const ReportCard = ({ session, sessionReports, user, className, defaultTerm }: {
                                             <div>
                                                 <h3 className="font-bold text-lg mb-2">Subjects</h3>
                                                 <div className="bg-background rounded-lg p-4 space-y-3 shadow-inner">
-                                                    {report.subjects.map((s, idx) => (
+                                                    {report.subjects?.map((s, idx) => (
                                                         <p key={idx} className="text-sm text-muted-foreground border-b border-border pb-2">{s.subject}</p>
                                                     ))}
                                                 </div>
@@ -138,7 +138,7 @@ const ReportCard = ({ session, sessionReports, user, className, defaultTerm }: {
                                             <div>
                                                 <h3 className="font-bold text-lg mb-2">Grade</h3>
                                                 <div className="bg-background rounded-lg p-4 space-y-3 shadow-inner">
-                                                    {report.subjects.map((s, idx) => (
+                                                    {report.subjects?.map((s, idx) => (
                                                         <p key={idx} className="text-sm font-bold text-center border-b border-border pb-2">{s.grade}</p>
                                                     ))}
                                                 </div>

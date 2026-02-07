@@ -90,16 +90,16 @@ export default function StudentDashboard() {
                 <CardContent>
                    <div className="mt-4 space-y-2">
                       <div className="grid grid-cols-2 gap-4">
-                        {result.subjects.slice(0, 6).map((s, idx) => (
+                        {result.subjects?.slice(0, 6).map((s, idx) => (
                           <div key={idx} className="flex justify-between items-center p-2 bg-muted/50 rounded-md">
                             <span className="text-sm font-medium">{s.subject}</span>
                             <Badge variant="secondary">{s.grade}</Badge>
                           </div>
                         ))}
                       </div>
-                      {result.subjects.length > 6 && (
+                      {(result.subjects?.length || 0) > 6 && (
                         <p className="text-xs text-center text-muted-foreground">
-                          And {result.subjects.length - 6} more subjects...
+                          And {(result.subjects?.length || 0) - 6} more subjects...
                         </p>
                       )}
                       <div className="mt-6 pt-4 border-t flex justify-between items-center">
