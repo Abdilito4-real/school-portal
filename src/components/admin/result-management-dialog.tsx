@@ -248,7 +248,7 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                                 <TableCell>{res.year}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-wrap gap-1">
-                                        {res.subjects?.slice(0, 3).map((s, idx) => (
+                                        {(res.subjects || []).slice(0, 3).map((s, idx) => (
                                             <Badge key={idx} variant="outline" className="text-[10px]">{s.subject}: {s.grade}</Badge>
                                         ))}
                                         {(res.subjects?.length || 0) > 3 && <span className="text-[10px] text-muted-foreground">+{(res.subjects?.length || 0) - 3} more</span>}
