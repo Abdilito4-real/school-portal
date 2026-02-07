@@ -83,12 +83,12 @@ export default function ActivityLogPage() {
         return {
             id: result.id,
             type: 'result' as const,
-            description: `Result for '${result.className}' was posted for a student with grade`,
+            description: `Academic report for ${result.term} term, ${result.year} was posted.`,
             status: null,
             timestamp: result.createdAt,
             studentName: student ? `${student.firstName} ${student.lastName}` : 'Unknown Student',
             className: studentClass ? studentClass.name : 'Unknown Class',
-            grade: result.grade,
+            grade: null,
         }
     });
 
@@ -161,7 +161,6 @@ export default function ActivityLogPage() {
                                                     <BookCopy className="h-5 w-5 text-muted-foreground" />
                                                     <div className="flex-grow text-sm">
                                                         <span>{activity.description}</span>
-                                                        {activity.grade && <Badge variant={'secondary'} className="ml-2">{activity.grade}</Badge>}
                                                     </div>
                                                     <p className="text-xs text-muted-foreground whitespace-nowrap">
                                                         {format(activity.timestamp.toDate(), 'PPP p')}

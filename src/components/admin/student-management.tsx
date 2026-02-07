@@ -49,6 +49,7 @@ export default function StudentManagement({ classId }: { classId: string }) {
   const [resultStudent, setResultStudent] = useState<Student | null>(null);
   
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isClearingResults, setIsClearingResults] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isBulkResultModalOpen, setIsBulkResultModalOpen] = useState(false);
 
@@ -143,7 +144,7 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
                 const wb = XLSX.read(bstr, { type: 'binary' });
                 const ws = wb.Sheets[wb.SheetNames[0]];
                 const data = XLSX.utils.sheet_to_json(ws);
-                
+
                 let count = 0;
                 const nonSubjectKeys = ['studentId', 'firstName', 'lastName', 'email', 'position', 'comments', 'Student ID', 'First Name', 'Last Name', 'Email', 'Position', 'Comments'];
 
@@ -153,31 +154,38 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
 
                     // Extract subjects - anything that's not in nonSubjectKeys
                     const subjectsInRow = Object.keys(row).filter(key => !nonSubjectKeys.includes(key));
+                    const studentSubjects = [];
 
                     for (const subject of subjectsInRow) {
                         const grade = row[subject];
                         if (grade === undefined || grade === null || grade === '') continue;
-
-                        // Deterministic ID to prevent duplicates on re-upload
-                        const resultId = `res_${studentId}_${subject}_${selectedTerm}_${selectedYear}`.replace(/[^a-zA-Z0-9]/g, '_');
-
-                        const payload = {
-                            className: subject,
-                            grade: grade.toString().toUpperCase(),
-                            term: selectedTerm,
-                            year: Number(selectedYear),
-                            comments: (row['comments'] || row['Comments'] || '').toString(),
-                            position: (row['position'] || row['Position'] || '').toString(),
-                            studentId,
-                            createdAt: serverTimestamp(),
-                        };
-
-                        await setDoc(doc(firestore, 'users', studentId, 'academicResults', resultId), payload);
-                        await setDoc(doc(firestore, 'academicResults', resultId), payload);
-                        count++;
+                        studentSubjects.push({
+                            subject,
+                            grade: grade.toString().toUpperCase()
+                        });
                     }
+
+                    if (studentSubjects.length === 0) continue;
+
+                    // Deterministic ID: one document per student/term/year
+                    const reportId = `report_${studentId}_${selectedTerm}_${selectedYear}`.replace(/[^a-zA-Z0-9]/g, '_');
+
+                    const payload = {
+                        id: reportId,
+                        studentId,
+                        term: selectedTerm,
+                        year: Number(selectedYear),
+                        subjects: studentSubjects,
+                        comments: (row['comments'] || row['Comments'] || '').toString(),
+                        position: (row['position'] || row['Position'] || '').toString(),
+                        createdAt: serverTimestamp(),
+                    };
+
+                    await setDoc(doc(firestore, 'users', studentId, 'academicResults', reportId), payload);
+                    await setDoc(doc(firestore, 'academicResults', reportId), payload);
+                    count++;
                 }
-                toast({ title: 'Upload Successful', description: `Uploaded ${count} results.` });
+                toast({ title: 'Upload Successful', description: `Uploaded ${count} term reports.` });
                 setOpen(false);
             } catch (err) {
                 console.error(err);
@@ -246,6 +254,30 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
     );
 };
 
+  const clearAllResults = async () => {
+    if (!firestore || !students) return;
+    if (!confirm("Are you sure you want to delete ALL academic results for ALL students in this class? This cannot be undone.")) return;
+
+    setIsClearingResults(true);
+    try {
+        const { getDocs, deleteDoc } = await import('firebase/firestore');
+        let count = 0;
+        for (const student of students) {
+            const snap = await getDocs(collection(firestore, 'users', student.id, 'academicResults'));
+            for (const d of snap.docs) {
+                await deleteDoc(d.ref);
+                await deleteDoc(doc(firestore, 'academicResults', d.id));
+                count++;
+            }
+        }
+        toast({ title: 'Success', description: `Cleared ${count} result records.` });
+    } catch (e) {
+        toast({ title: 'Failed to clear results', variant: 'destructive' });
+    } finally {
+        setIsClearingResults(false);
+    }
+  };
+
   const performDeleteStudent = async () => {
     if (!studentToDelete) return;
     setIsDeleting(true);
@@ -271,6 +303,10 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
             </Button>
             <Button variant="outline" onClick={() => setIsBulkResultModalOpen(true)}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Upload Class Results
+            </Button>
+            <Button variant="destructive" onClick={clearAllResults} disabled={isClearingResults}>
+                {isClearingResults ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                Clear All Results
             </Button>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">

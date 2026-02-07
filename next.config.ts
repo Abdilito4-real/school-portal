@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
         hostname: '**.cloudworkstations.dev',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
     ],
   },
 };
