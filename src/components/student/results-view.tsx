@@ -237,7 +237,7 @@ export default function ResultsView() {
     const timeA = sessionA.createdAt?.toMillis() || 0;
     const timeB = sessionB.createdAt?.toMillis() || 0;
     return timeB - timeA;
-  });
+  }).slice(0, 1);
   
   const studentClassName = classes?.find(c => c.id === user?.classId)?.name || 'Unknown';
 

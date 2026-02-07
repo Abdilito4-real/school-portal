@@ -78,7 +78,7 @@ export default function StudentDashboard() {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg font-bold">
-                      {result.term} Term Report, {result.year}
+                      Report Card
                     </CardTitle>
                     <GraduationCap className="h-6 w-6 text-primary" />
                   </div>

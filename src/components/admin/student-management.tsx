@@ -278,6 +278,37 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
     }
   };
 
+  const keepOnlyLatestResults = async () => {
+    if (!firestore || !students) return;
+    if (!confirm("This will keep only the MOST RECENT result for each student and delete all older records. Continue?")) return;
+
+    setIsClearingResults(true);
+    try {
+        const { getDocs, deleteDoc, query, orderBy } = await import('firebase/firestore');
+        let deletedCount = 0;
+        for (const student of students) {
+            const q = query(collection(firestore, 'users', student.id, 'academicResults'), orderBy('createdAt', 'desc'));
+            const snap = await getDocs(q);
+
+            if (snap.docs.length > 1) {
+                // Keep the first one (most recent), delete the rest
+                const toDelete = snap.docs.slice(1);
+                for (const d of toDelete) {
+                    await deleteDoc(d.ref);
+                    await deleteDoc(doc(firestore, 'academicResults', d.id));
+                    deletedCount++;
+                }
+            }
+        }
+        toast({ title: 'Cleanup Complete', description: `Removed ${deletedCount} older result records.` });
+    } catch (e) {
+        console.error(e);
+        toast({ title: 'Cleanup Failed', variant: 'destructive' });
+    } finally {
+        setIsClearingResults(false);
+    }
+  };
+
   const performDeleteStudent = async () => {
     if (!studentToDelete) return;
     setIsDeleting(true);
@@ -304,9 +335,13 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
             <Button variant="outline" onClick={() => setIsBulkResultModalOpen(true)}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Upload Class Results
             </Button>
+            <Button variant="outline" onClick={keepOnlyLatestResults} disabled={isClearingResults} className="text-destructive hover:bg-destructive/10">
+                {isClearingResults ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                Keep Only Recent Results
+            </Button>
             <Button variant="destructive" onClick={clearAllResults} disabled={isClearingResults}>
                 {isClearingResults ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                Clear All Results
+                Clear All
             </Button>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
