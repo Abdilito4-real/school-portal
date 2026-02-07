@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import type { AcademicResult, Class, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -191,7 +191,13 @@ export default function ResultsView() {
   const [selectedTerm, setSelectedTerm] = useState<'1st' | '2nd' | '3rd'>('1st');
 
   const resultsQuery = useMemoFirebase(
-    () => (user && firestore ? query(collection(firestore, 'users', user.uid, 'academicResults')) : null),
+    () =>
+      user && firestore
+        ? query(
+            collection(firestore, 'users', user.uid, 'academicResults'),
+            orderBy('createdAt', 'desc')
+          )
+        : null,
     [firestore, user]
   );
   const { data: studentResults, isLoading: isLoadingResults } = useCollection<AcademicResult>(resultsQuery);
