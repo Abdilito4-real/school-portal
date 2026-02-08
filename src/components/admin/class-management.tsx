@@ -39,6 +39,7 @@ import {
 import Link from 'next/link';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { sortClasses } from '@/lib/utils';
 
 const classSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
@@ -151,7 +152,7 @@ export default function ClassManagement() {
 
   const sortedClasses = useMemo(() => {
     if (!classes) return [];
-    return [...classes].sort((a, b) => a.name.localeCompare(b.name));
+    return sortClasses(classes);
   }, [classes]);
 
   const performDelete = async () => {

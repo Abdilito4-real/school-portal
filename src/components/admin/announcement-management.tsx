@@ -43,6 +43,7 @@ import { Trash2, Edit, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { sortClasses } from '@/lib/utils';
 
 const announcementSchema = z.object({
   title: z.string().min(3, 'Title is too short'),
@@ -128,7 +129,7 @@ const AnnouncementForm = ({
                     <FormControl><SelectTrigger><SelectValue placeholder="Select Audience"/></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="all">All Students</SelectItem>
-                      {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      {sortClasses(classes).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <FormMessage />

@@ -23,6 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { createStudentAuthUser } from '@/ai/flows/create-student-flow';
 import { deleteStudent as deleteStudentFlow } from '@/ai/flows/delete-student-flow';
 import { useAuth } from '@/hooks/use-auth';
+import { sortClasses } from '@/lib/utils';
 
 const studentSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters.'),
@@ -146,7 +147,7 @@ export default function StudentForm({
             <FormItem><FormLabel>Class</FormLabel>
             <Select value={field.value} onValueChange={field.onChange}>
               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-              <SelectContent>{classes?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{classes ? sortClasses(classes).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>) : null}</SelectContent>
             </Select>
             <FormMessage />
             </FormItem>
