@@ -48,7 +48,7 @@ const classSchema = z.object({
   })).min(1, "Add at least one subject."),
 });
 
-function ClassForm({
+export function ClassForm({
   setOpen,
   currentClass,
 }: {

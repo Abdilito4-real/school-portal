@@ -8,9 +8,10 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Loader2, ArrowLeft, Edit, Trash2, BookOpen, CreditCard, Download, FileSpreadsheet, Info, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, Loader2, ArrowLeft, Edit, Trash2, BookOpen, CreditCard, Download, FileSpreadsheet, Info, CheckCircle2, Settings } from 'lucide-react';
 import type { Student, FeeRecord, Class } from '@/lib/types';
 import { useDoc } from '@/firebase';
+import { ClassForm } from './class-management';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -52,9 +53,10 @@ export default function StudentManagement({ classId }: { classId: string }) {
   const [isClearingResults, setIsClearingResults] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isBulkResultModalOpen, setIsBulkResultModalOpen] = useState(false);
+  const [isClassFormOpen, setIsClassFormOpen] = useState(false);
 
   const classDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'classes', classId) : null, [firestore, classId]);
-  const { data: classData } = useDoc<Class>(classDocRef);
+  const { data: classData, isLoading: isLoadingClass } = useDoc<Class>(classDocRef);
 
   const studentsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -82,9 +84,16 @@ export default function StudentManagement({ classId }: { classId: string }) {
   const downloadClassListTemplate = () => {
     if (!students || students.length === 0) return;
     
-    const subjects = (classData?.subjects && classData.subjects.length > 0)
-        ? classData.subjects
-        : ['Mathematics', 'English', 'Civic Education', 'Physics', 'Biology', 'Chemistry', 'Religious Studies'];
+    const subjects = classData?.subjects || [];
+
+    if (subjects.length === 0) {
+        toast({
+            title: "No subjects defined",
+            description: "Please add subjects to this class in Class Settings before downloading the template.",
+            variant: "destructive"
+        });
+        return;
+    }
 
     const templateData: any[] = students.map(s => {
         const row: any = {
@@ -329,7 +338,10 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
       <div className="flex justify-between items-center gap-4 flex-wrap">
         <div className="flex gap-2">
             <Button asChild variant="outline"><Link href="/admin/classes"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>
-            <Button variant="outline" onClick={downloadClassListTemplate} disabled={isLoadingStudents || filteredStudents.length === 0}>
+            <Button variant="outline" onClick={() => setIsClassFormOpen(true)} disabled={isLoadingClass}>
+                <Settings className="mr-2 h-4 w-4" /> Class Settings
+            </Button>
+            <Button variant="outline" onClick={downloadClassListTemplate} disabled={isLoadingStudents || isLoadingClass || filteredStudents.length === 0}>
                 <Download className="mr-2 h-4 w-4" /> Download Class Template
             </Button>
             <Button variant="outline" onClick={() => setIsBulkResultModalOpen(true)}>
@@ -432,6 +444,10 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
             setIsUploading={setIsUploading}
             isUploading={isUploading}
         />
+      </Dialog>
+
+      <Dialog open={isClassFormOpen} onOpenChange={setIsClassFormOpen}>
+         {isClassFormOpen && <ClassForm setOpen={setIsClassFormOpen} currentClass={classData || undefined} />}
       </Dialog>
       
       <AlertDialog open={!!studentToDelete} onOpenChange={(open) => !open && setStudentToDelete(null)}>

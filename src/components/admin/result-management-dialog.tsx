@@ -35,7 +35,17 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
     const [position, setPosition] = useState('');
 
     const downloadTemplate = () => {
-        const subjects = studentClass?.subjects || ['Mathematics', 'English', 'Civic Education', 'Physics', 'Biology', 'Chemistry', 'Religious Studies'];
+        const subjects = studentClass?.subjects || [];
+
+        if (subjects.length === 0) {
+            toast({
+                title: "No subjects defined",
+                description: "Please add subjects to this student's class in Class Management before downloading the template.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         const templateData = [
             {
                 'Student ID': student.id,
