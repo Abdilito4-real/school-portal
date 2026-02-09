@@ -63,6 +63,14 @@ service cloud.firestore {
       return request.auth.token.email == 'admin@example.com';
     }
 
+    /**
+     * Unified function to grant administrative access to both the bootstrap
+     * admin and users in the roles_admin collection.
+     */
+    function isAuthorizedAdmin() {
+      return isAdmin() || isBootstrapAdmin();
+    }
+
 
     /**
      * On create, validates that the incoming document's studentId field
@@ -102,10 +110,10 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree. Admins are granted override access for management.
      */
     match /users/{userId}/academicResults/{academicResultId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if (isOwner(userId) || isAdmin()) && isCreatingOwnStudentData(userId);
-      allow update: if (isOwner(userId) || isAdmin()) && studentIdIsImmutable() && resource != null;
-      allow delete: if (isOwner(userId) || isAdmin()) && resource != null;
+      allow get, list: if isOwner(userId) || isAuthorizedAdmin();
+      allow create: if (isOwner(userId) || isAuthorizedAdmin()) && isCreatingOwnStudentData(userId);
+      allow update: if (isOwner(userId) || isAuthorizedAdmin()) && studentIdIsImmutable() && resource != null;
+      allow delete: if (isOwner(userId) || isAuthorizedAdmin()) && resource != null;
     }
 
     /**
@@ -116,10 +124,10 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree. Admins are granted override access for management.
      */
     match /users/{userId}/fees/{feeId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if (isOwner(userId) || isAdmin()) && isCreatingOwnStudentData(userId);
-      allow update: if (isOwner(userId) || isAdmin()) && studentIdIsImmutable() && resource != null;
-      allow delete: if (isOwner(userId) || isAdmin()) && resource != null;
+      allow get, list: if isOwner(userId) || isAuthorizedAdmin();
+      allow create: if (isOwner(userId) || isAuthorizedAdmin()) && isCreatingOwnStudentData(userId);
+      allow update: if (isOwner(userId) || isAuthorizedAdmin()) && studentIdIsImmutable() && resource != null;
+      allow delete: if (isOwner(userId) || isAuthorizedAdmin()) && resource != null;
     }
 
     // -------------------------------------------------------------------------
@@ -135,10 +143,10 @@ service cloud.firestore {
      */
     match /roles_admin/{userId} {
       allow get: if isSignedIn();
-      allow list: if false;
-      allow create: if (isOwner(userId) && isBootstrapAdmin()) || isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin() && resource != null;
+      allow list: if isAuthorizedAdmin();
+      allow create: if (isOwner(userId) && isBootstrapAdmin()) || isAuthorizedAdmin();
+      allow update: if isAuthorizedAdmin();
+      allow delete: if isAuthorizedAdmin() && resource != null;
     }
 
     /**
@@ -149,9 +157,9 @@ service cloud.firestore {
      * @principle Enforces admin-only writes for core system data while allowing users to read their own record. Listing is restricted to prevent data scraping.
      */
     match /students/{studentId} {
-      allow get: if isOwner(studentId) || isAdmin();
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow get: if isOwner(studentId) || isAuthorizedAdmin();
+      allow list: if isAuthorizedAdmin();
+      allow create, update, delete: if isAuthorizedAdmin();
     }
 
     /**
@@ -163,7 +171,7 @@ service cloud.firestore {
      */
     match /classes/{classId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAuthorizedAdmin();
     }
 
     /**
@@ -174,9 +182,9 @@ service cloud.firestore {
      * @principle Enforces fine-grained read access via a denormalized field (`classIds`) and a lookup on the student's profile.
      */
     match /announcements/{announcementId} {
-      allow get: if isAdmin() || (isSignedIn() && canReadAnnouncement(resource));
+      allow get: if isAuthorizedAdmin() || (isSignedIn() && canReadAnnouncement(resource));
       allow list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAuthorizedAdmin();
     }
     
     /**
@@ -188,7 +196,7 @@ service cloud.firestore {
      */
     match /site_content/{contentId} {
       allow read;
-      allow write: if isAdmin();
+      allow write: if isAuthorizedAdmin();
     }
 
     /**
@@ -198,7 +206,7 @@ service cloud.firestore {
      * @deny Students cannot access this global collection directly.
      */
     match /fees/{feeId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAuthorizedAdmin();
     }
 
     /**
@@ -208,7 +216,7 @@ service cloud.firestore {
      * @deny Students cannot access this global collection directly.
      */
     match /academicResults/{resultId} {
-      allow read: if isAdmin();
+      allow read: if isAuthorizedAdmin();
       allow write: if isSignedIn(); // Allows admins to create result summaries
     }
   }

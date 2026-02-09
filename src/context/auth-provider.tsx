@@ -47,8 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const adminRoleRef = doc(firestore, `roles_admin/${fbUser.uid}`);
         const adminSnap = await getDoc(adminRoleRef);
+        const isBootstrapAdmin = fbUser.email === 'admin@example.com';
 
-        if (adminSnap.exists()) {
+        if (adminSnap.exists() || isBootstrapAdmin) {
           const adminUser: User = {
             uid: fbUser.uid,
             email: fbUser.email,
