@@ -34,95 +34,6 @@ import StudentForm from './student-form';
 import FeeManagementDialog from './fee-management-dialog';
 import ResultManagementDialog from './result-management-dialog';
 import * as XLSX from 'xlsx';
-import { cn } from '@/lib/utils';
-
-export default function StudentManagement({ classId }: { classId: string }) {
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  const { user } = useAuth();
-  
-  const [filter, setFilter] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
-  const [isStudentFormOpen, setStudentFormOpen] = useState(false);
-  
-  const [feeStudent, setFeeStudent] = useState<Student | null>(null);
-  const [resultStudent, setResultStudent] = useState<Student | null>(null);
-  
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isClearingResults, setIsClearingResults] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isBulkResultModalOpen, setIsBulkResultModalOpen] = useState(false);
-  const [isClassFormOpen, setIsClassFormOpen] = useState(false);
-
-  const classDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'classes', classId) : null, [firestore, classId]);
-  const { data: classData, isLoading: isLoadingClass } = useDoc<Class>(classDocRef);
-
-  const studentsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'students'), where('classId', '==', classId));
-  }, [firestore, classId, user]);
-  const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
-
-  const feesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return collection(firestore, 'fees');
-  }, [firestore, user]);
-  const { data: allFees } = useCollection<FeeRecord>(feesQuery);
-
-  const feesByStudentId = useMemo(() => {
-    const map = new Map<string, FeeRecord>();
-    allFees?.forEach(fee => map.set(fee.studentId, fee));
-    return map;
-  }, [allFees]);
-
-  const filteredStudents = useMemo(() => 
-    students?.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(filter.toLowerCase())) ?? [], 
-    [students, filter]
-  );
-
-  const downloadClassListTemplate = () => {
-    if (!students || students.length === 0) return;
-    
-    const subjects = classData?.subjects || [];
-
-    if (subjects.length === 0) {
-        toast({
-            title: "No subjects defined",
-            description: "Please add subjects to this class in Class Settings before downloading the template.",
-            variant: "destructive"
-        });
-        return;
-    }
-
-    const templateData: any[] = students.map(s => {
-        const row: any = {
-            'studentId': s.id,
-            'firstName': s.firstName,
-            'lastName': s.lastName,
-            'email': s.email || '',
-        };
-
-        // Add subject columns
-        subjects.forEach(subject => {
-            row[subject] = '';
-        });
-
-        row['position'] = '';
-        row['comments'] = '';
-        return row;
-    });
-
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "ClassResults");
-    XLSX.writeFile(wb, `Class_List_Results_Template.xlsx`);
-    
-    toast({
-        title: "Template Downloaded",
-        description: "Fill this sheet to upload results for all students in this class."
-    });
-  };
 
 interface BulkResultUploadDialogProps {
     isOpen: boolean;
@@ -132,7 +43,7 @@ interface BulkResultUploadDialogProps {
     isUploading: boolean;
 }
 
-const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, isUploading }: BulkResultUploadDialogProps) => {
+const BulkResultUploadDialog = ({ setOpen, firestore, setIsUploading, isUploading }: BulkResultUploadDialogProps) => {
     const [selectedTerm, setSelectedTerm] = useState('1st');
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [file, setFile] = useState<File | null>(null);
@@ -262,6 +173,94 @@ const BulkResultUploadDialog = ({ isOpen, setOpen, firestore, setIsUploading, is
         </DialogContent>
     );
 };
+
+export default function StudentManagement({ classId }: { classId: string }) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  const [filter, setFilter] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isStudentFormOpen, setStudentFormOpen] = useState(false);
+
+  const [feeStudent, setFeeStudent] = useState<Student | null>(null);
+  const [resultStudent, setResultStudent] = useState<Student | null>(null);
+
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isClearingResults, setIsClearingResults] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isBulkResultModalOpen, setIsBulkResultModalOpen] = useState(false);
+  const [isClassFormOpen, setIsClassFormOpen] = useState(false);
+
+  const classDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'classes', classId) : null, [firestore, classId]);
+  const { data: classData, isLoading: isLoadingClass } = useDoc<Class>(classDocRef);
+
+  const studentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'students'), where('classId', '==', classId));
+  }, [firestore, classId, user]);
+  const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
+
+  const feesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'fees');
+  }, [firestore, user]);
+  const { data: allFees } = useCollection<FeeRecord>(feesQuery);
+
+  const feesByStudentId = useMemo(() => {
+    const map = new Map<string, FeeRecord>();
+    allFees?.forEach(fee => map.set(fee.studentId, fee));
+    return map;
+  }, [allFees]);
+
+  const filteredStudents = useMemo(() =>
+    students?.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(filter.toLowerCase())) ?? [],
+    [students, filter]
+  );
+
+  const downloadClassListTemplate = () => {
+    if (!students || students.length === 0) return;
+
+    const subjects = classData?.subjects || [];
+
+    if (subjects.length === 0) {
+        toast({
+            title: "No subjects defined",
+            description: "Please add subjects to this class in Class Settings before downloading the template.",
+            variant: "destructive"
+        });
+        return;
+    }
+
+    const templateData: any[] = students.map(s => {
+        const row: any = {
+            'studentId': s.id,
+            'firstName': s.firstName,
+            'lastName': s.lastName,
+            'email': s.email || '',
+        };
+
+        // Add subject columns
+        subjects.forEach(subject => {
+            row[subject] = '';
+        });
+
+        row['position'] = '';
+        row['comments'] = '';
+        return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "ClassResults");
+    XLSX.writeFile(wb, `Class_List_Results_Template.xlsx`);
+
+    toast({
+        title: "Template Downloaded",
+        description: "Fill this sheet to upload results for all students in this class."
+    });
+  };
 
   const clearAllResults = async () => {
     if (!firestore || !students) return;

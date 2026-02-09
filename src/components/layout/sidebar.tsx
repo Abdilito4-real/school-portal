@@ -24,6 +24,7 @@ const adminNavItems = [
   { href: '/admin/classes', icon: School, label: 'Classes' },
   { href: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
   { href: '/admin/content', icon: FileText, label: 'Site Content' },
+  { href: '/admin/staff', icon: Users, label: 'Staff Management' },
 ];
 
 const studentNavItems = [
