@@ -49,26 +49,21 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the user has an admin role by verifying the existence
-     * of their UID in the roles_admin collection.
+     * Unified function to grant administrative access to both the bootstrap
+     * admin and users in the roles_admin collection.
      */
-    function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    function isAuthorizedAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@example.com' ||
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+      );
     }
     
     /**
      * Checks if the user is the special-cased bootstrap admin.
      */
     function isBootstrapAdmin() {
-      return request.auth.token.email == 'admin@example.com';
-    }
-
-    /**
-     * Unified function to grant administrative access to both the bootstrap
-     * admin and users in the roles_admin collection.
-     */
-    function isAuthorizedAdmin() {
-      return isAdmin() || isBootstrapAdmin();
+      return isSignedIn() && request.auth.token.email == 'admin@example.com';
     }
 
 
@@ -104,10 +99,6 @@ service cloud.firestore {
 
     /**
      * @description Controls access to a student's private academic results.
-     * @path /users/{userId}/academicResults/{academicResultId}
-     * @allow A logged-in student (auth.uid: 'user123') reading their own result at `/users/user123/academicResults/res456`. (get)
-     * @deny A student (auth.uid: 'userABC') trying to read another student's result at `/users/user123/academicResults/res456`. (get)
-     * @principle Restricts access to a user's own data tree. Admins are granted override access for management.
      */
     match /users/{userId}/academicResults/{academicResultId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
@@ -118,10 +109,6 @@ service cloud.firestore {
 
     /**
      * @description Controls access to a student's private fee information.
-     * @path /users/{userId}/fees/{feeId}
-     * @allow An admin reading any student's fee status at `/users/user123/fees/fee789`. (get)
-     * @deny A student (auth.uid: 'userABC') creating a fee document under another student's path at `/users/user123/fees/fee789`. (create)
-     * @principle Restricts access to a user's own data tree. Admins are granted override access for management.
      */
     match /users/{userId}/fees/{feeId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
@@ -135,26 +122,17 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     /**
-     * @description Manages admin role assignments. Only other admins can modify this collection.
-     * @path /roles_admin/{userId}
-     * @allow An existing admin deleting a role document at `/roles_admin/user456`. (delete)
-     * @deny A non-admin user trying to create a role for themselves at `/roles_admin/user123`. (create)
-     * @principle Secures role management by restricting write access to current administrators. Listing is disabled to prevent enumeration of admins.
+     * @description Manages admin role assignments.
      */
     match /roles_admin/{userId} {
-      allow get: if isSignedIn();
+      allow get: if isAuthorizedAdmin() || isSignedIn();
       allow list: if isAuthorizedAdmin();
-      allow create: if (isOwner(userId) && isBootstrapAdmin()) || isAuthorizedAdmin();
-      allow update: if isAuthorizedAdmin();
-      allow delete: if isAuthorizedAdmin() && resource != null;
+      allow create: if isAuthorizedAdmin() || (isOwner(userId) && isBootstrapAdmin());
+      allow update, delete: if isAuthorizedAdmin();
     }
 
     /**
-     * @description Manages student profiles. Admins have full control. Students can only read their own profile.
-     * @path /students/{studentId}
-     * @allow A logged-in student (auth.uid: 'student123') reading their own profile at `/students/student123`. (get)
-     * @deny A logged-in student (auth.uid: 'student123') trying to list all students at `/students`. (list)
-     * @principle Enforces admin-only writes for core system data while allowing users to read their own record. Listing is restricted to prevent data scraping.
+     * @description Manages student profiles.
      */
     match /students/{studentId} {
       allow get: if isOwner(studentId) || isAuthorizedAdmin();
@@ -163,11 +141,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Manages global class information. Writable only by admins, readable by any authenticated user.
-     * @path /classes/{classId}
-     * @allow Any authenticated student listing all available classes. (list)
-     * @deny An authenticated student attempting to create a new class. (create)
-     * @principle Public read for signed-in users with admin-only writes for content integrity.
+     * @description Manages global class information.
      */
     match /classes/{classId} {
       allow get, list: if isSignedIn();
@@ -175,11 +149,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Manages announcements. Writable only by admins. Readable by students if the announcement targets their class.
-     * @path /announcements/{announcementId}
-     * @allow A student in 'ClassA' reading an announcement that has 'ClassA' in its `classIds` array. (get)
-     * @deny A student in 'ClassB' reading an announcement that only targets 'ClassA'. (get)
-     * @principle Enforces fine-grained read access via a denormalized field (`classIds`) and a lookup on the student's profile.
+     * @description Manages announcements.
      */
     match /announcements/{announcementId} {
       allow get: if isAuthorizedAdmin() || (isSignedIn() && canReadAnnouncement(resource));
@@ -188,11 +158,7 @@ service cloud.firestore {
     }
     
     /**
-     * @description Manages editable content for the public website. Writable only by admins.
-     * @path /site_content/{contentId}
-     * @allow An anonymous user reading the homepage content. (get)
-     * @deny A non-admin user trying to update the homepage content. (update)
-     * @principle Public read for all, admin-only writes for content integrity.
+     * @description Manages editable content for the public website.
      */
     match /site_content/{contentId} {
       allow read;
@@ -200,24 +166,18 @@ service cloud.firestore {
     }
 
     /**
-     * @description Global, denormalized collection of fees for dashboard aggregation. Writable only by admins.
-     * @path /fees/{feeId}
-     * @allow Admins can list fees for the dashboard.
-     * @deny Students cannot access this global collection directly.
+     * @description Global collection of fees for dashboard aggregation.
      */
     match /fees/{feeId} {
       allow read, write: if isAuthorizedAdmin();
     }
 
     /**
-     * @description Global, denormalized collection of academic results for dashboard aggregation.
-     * @path /academicResults/{resultId}
-     * @allow Admins can list results for the dashboard. Authenticated users can write (admins creating results).
-     * @deny Students cannot access this global collection directly.
+     * @description Global collection of academic results for dashboard aggregation.
      */
     match /academicResults/{resultId} {
       allow read: if isAuthorizedAdmin();
-      allow write: if isSignedIn(); // Allows admins to create result summaries
+      allow write: if isSignedIn();
     }
   }
 }

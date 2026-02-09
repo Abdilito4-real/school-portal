@@ -38,9 +38,9 @@ export default function StaffManagement() {
     const [adminToDelete, setAdminToDelete] = useState<AdminRole | null>(null);
 
     const rolesQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || !user || user.role !== 'admin') return null;
         return collection(firestore, 'roles_admin');
-    }, [firestore]);
+    }, [firestore, user]);
 
     const { data: admins, isLoading } = useCollection<AdminRole>(rolesQuery);
 
