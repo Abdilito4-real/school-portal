@@ -23,6 +23,7 @@ const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/classes', icon: School, label: 'Classes' },
   { href: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+  { href: '/admin/staff', icon: Users, label: 'Staff Management' },
   { href: '/admin/content', icon: FileText, label: 'Site Content' },
 ];
 

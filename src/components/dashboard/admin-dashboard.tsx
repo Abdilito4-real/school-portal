@@ -79,6 +79,11 @@ export default function AdminDashboard() {
               </Link>
             </Button>
             <Button asChild className="justify-start" variant="ghost">
+              <Link href="/admin/staff">
+                Manage Staff <ArrowRight className="ml-auto h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild className="justify-start" variant="ghost">
               <Link href="/admin/activity">
                 View All Activity <ArrowRight className="ml-auto h-4 w-4" />
               </Link>
