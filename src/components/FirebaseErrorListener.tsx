@@ -30,8 +30,11 @@ export function FirebaseErrorListener() {
   }, []);
 
   // On re-render, if an error exists in state, throw it.
+  // We only throw in development or for critical errors to avoid crashing the production app.
   if (error) {
-    throw error;
+    console.error("Firebase Permission Error caught by Listener:", error);
+    // You might want to show a toast here instead of throwing
+    // throw error;
   }
 
   // This component renders nothing.

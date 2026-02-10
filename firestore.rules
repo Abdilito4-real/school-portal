@@ -5,25 +5,6 @@
  * This ruleset enforces a security model with two primary user types: Students and Administrators.
  * Students have strict ownership over their personal data (academic results, fees), ensuring privacy.
  * Administrators have broad permissions to manage global data (Classes, Announcements, Student profiles) and view student-specific data for administrative purposes.
- *
- * ## Data Structure
- * - `/users/{userId}`: A path-based container for all data private to a specific student (user).
- *   - `academicResults/{academicResultId}`: Private academic results for the student.
- *   - `fees/{feeId}`: Private fee information for the student.
- * - `/students/{studentId}`: Public-facing student profile information, managed by admins. The `{studentId}` typically corresponds to a user's UID.
- * - `/classes/{classId}`: A global collection of all available classes, readable by students but managed by admins.
- * - `/announcements/{announcementId}`: A global collection of announcements. Admins create them, and students can only read announcements relevant to their class.
- * - `/roles_admin/{userId}`: A lookup collection to grant admin privileges. The existence of a document with a user's UID grants them admin rights.
- * - `/fees/{feeId}`: A global collection for fee aggregation on the admin dashboard. Writable by admins only.
- * - `/academicResults/{academicResultId}`: A global, denormalized collection of result summaries for dashboard aggregation.
- * - `/site_content/{contentId}`: A global collection for public website content, writable by admins only.
- *
- * ## Key Security Decisions
- * - **Admin Role by Existence**: A user is considered an admin if a document with their UID exists in the `/roles_admin` collection. This is a simple and effective way to manage roles.
- * - **Student Data Privacy**: All data under `/users/{userId}` is strictly controlled. Only the user themselves (or an admin) can access it. Listing other users' private data is impossible.
- * - **Denormalization for Authorization**: To secure announcements, a student's `classId` (from their `/students/{studentId}` profile) is checked against the `classIds` array on an announcement document during a `get` request. This requires an extra document read but enables fine-grained access control.
- * - **Prototyping Flexibility**: These rules strictly enforce *who* can access data but do *not* validate the shape or type of data being written (e.g., string lengths, enum values). This allows for rapid frontend development and iteration. Critical relational IDs (e.g., `studentId`) are validated to maintain data integrity.
- *
  */
 rules_version = '2';
 service cloud.firestore {
@@ -33,25 +14,14 @@ service cloud.firestore {
     // Helper Functions
     // -------------------------------------------------------------------------
 
-    /**
-     * Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently authenticated user's UID matches the provided userId.
-     * This is the core function for enforcing document ownership.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * Unified function to grant administrative access to both the bootstrap
-     * admin and users in the roles_admin collection.
-     */
     function isAuthorizedAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'admin@example.com' ||
@@ -59,35 +29,18 @@ service cloud.firestore {
       );
     }
     
-    /**
-     * Checks if the user is the special-cased bootstrap admin.
-     */
     function isBootstrapAdmin() {
       return isSignedIn() && request.auth.token.email == 'admin@example.com';
     }
 
-
-    /**
-     * On create, validates that the incoming document's studentId field
-     * matches the user ID from the path, ensuring data consistency.
-     */
     function isCreatingOwnStudentData(userId) {
       return request.resource.data.studentId == userId;
     }
 
-    /**
-     * On update, ensures the studentId field cannot be changed,
-     * preventing documents from being reassigned to other users.
-     */
     function studentIdIsImmutable() {
       return request.resource.data.studentId == resource.data.studentId;
     }
 
-    /**
-      * Checks if a student can read an announcement. This requires a 'get' call
-      * to the student's profile to retrieve their classId and check if it's
-      * included in the announcement's list of targeted classes.
-      */
     function canReadAnnouncement(announcement) {
       let studentClassId = get(/databases/$(database)/documents/students/$(request.auth.uid)).data.classId;
       return studentClassId in announcement.data.classIds;
@@ -97,9 +50,6 @@ service cloud.firestore {
     // User-Private Collections
     // -------------------------------------------------------------------------
 
-    /**
-     * @description Controls access to a student's private academic results.
-     */
     match /users/{userId}/academicResults/{academicResultId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
       allow create: if (isOwner(userId) || isAuthorizedAdmin()) && isCreatingOwnStudentData(userId);
@@ -107,9 +57,6 @@ service cloud.firestore {
       allow delete: if (isOwner(userId) || isAuthorizedAdmin()) && resource != null;
     }
 
-    /**
-     * @description Controls access to a student's private fee information.
-     */
     match /users/{userId}/fees/{feeId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
       allow create: if (isOwner(userId) || isAuthorizedAdmin()) && isCreatingOwnStudentData(userId);
@@ -121,60 +68,44 @@ service cloud.firestore {
     // Global & Administrative Collections
     // -------------------------------------------------------------------------
 
-    /**
-     * @description Manages admin role assignments.
-     */
     match /roles_admin/{userId} {
-      allow get: if isAuthorizedAdmin() || isSignedIn();
-      allow list: if isAuthorizedAdmin();
+      // Allow individual check
+      allow get: if isSignedIn();
+
+      // Explicitly split list rules to avoid potential issues with complex expressions
+      allow list: if isSignedIn() && request.auth.token.email == 'admin@example.com';
+      allow list: if exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+
       allow create: if isAuthorizedAdmin() || (isOwner(userId) && isBootstrapAdmin());
       allow update, delete: if isAuthorizedAdmin();
     }
 
-    /**
-     * @description Manages student profiles.
-     */
     match /students/{studentId} {
       allow get: if isOwner(studentId) || isAuthorizedAdmin();
       allow list: if isAuthorizedAdmin();
       allow create, update, delete: if isAuthorizedAdmin();
     }
 
-    /**
-     * @description Manages global class information.
-     */
     match /classes/{classId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAuthorizedAdmin();
     }
 
-    /**
-     * @description Manages announcements.
-     */
     match /announcements/{announcementId} {
       allow get: if isAuthorizedAdmin() || (isSignedIn() && canReadAnnouncement(resource));
       allow list: if isSignedIn();
       allow create, update, delete: if isAuthorizedAdmin();
     }
     
-    /**
-     * @description Manages editable content for the public website.
-     */
     match /site_content/{contentId} {
       allow read;
       allow write: if isAuthorizedAdmin();
     }
 
-    /**
-     * @description Global collection of fees for dashboard aggregation.
-     */
     match /fees/{feeId} {
       allow read, write: if isAuthorizedAdmin();
     }
 
-    /**
-     * @description Global collection of academic results for dashboard aggregation.
-     */
     match /academicResults/{resultId} {
       allow read: if isAuthorizedAdmin();
       allow write: if isSignedIn();

@@ -42,7 +42,7 @@ export default function StaffManagement() {
         return collection(firestore, 'roles_admin');
     }, [firestore, user]);
 
-    const { data: admins, isLoading } = useCollection<AdminRole>(rolesQuery);
+    const { data: admins, isLoading, error } = useCollection<AdminRole>(rolesQuery);
 
     const isBootstrapAdmin = user?.email === 'admin@example.com';
     const isAlreadyPermanentAdmin = useMemo(() => {
@@ -141,6 +141,13 @@ export default function StaffManagement() {
                                     <TableRow>
                                         <TableCell colSpan={3} className="text-center py-10">
                                             <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : error ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center py-10 text-destructive">
+                                            <ShieldAlert className="mx-auto h-6 w-6 mb-2" />
+                                            Error loading admins: {error.message}
                                         </TableCell>
                                     </TableRow>
                                 ) : !admins || admins.length === 0 ? (

@@ -39,10 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkUserRoleAndData = async (fbUser: import('firebase/auth').User) => {
-      if (!firestore) {
-        setLoading(false);
-        return;
-      }
+      if (!firestore) return;
       
       try {
         const adminRoleRef = doc(firestore, `roles_admin/${fbUser.uid}`);
