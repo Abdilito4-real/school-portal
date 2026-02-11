@@ -104,7 +104,9 @@ service cloud.firestore {
       allow get: if isSignedIn();
 
       // Allow listing for super admins.
-      // isSuperAdmin handles both the bootstrap email and DB-verified super admins.
+      // Split into two rules for maximum compatibility with query evaluation.
+      // The first rule allows the bootstrap admin to list even if they don't have a DB record.
+      allow list: if isSignedIn() && request.auth.token.email == 'admin@example.com';
       allow list: if isSuperAdmin();
 
       // Only Super Admins can manage other admins
