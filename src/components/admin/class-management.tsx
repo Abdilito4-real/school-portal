@@ -142,7 +142,7 @@ export default function ClassManagement() {
   const [classToDelete, setClassToDelete] = useState<Class | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
+  const { data: classes, isLoading: isLoadingClasses, error: classesError } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
   const { data: students } = useCollection<Student>(useMemoFirebase(() => collection(firestore, 'students'), [firestore]));
 
   const studentCountByClass = useMemo(() => {
@@ -188,6 +188,8 @@ export default function ClassManagement() {
         <CardContent className="space-y-2">
           {isLoadingClasses ? (
             <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : classesError ? (
+            <p className="text-center text-destructive py-8">Error loading classes: {classesError.message}</p>
           ) : filteredClasses.length > 0 ? (
             filteredClasses.map(cls => (
               <Card key={cls.id} className="hover:bg-muted/50 transition-colors">

@@ -48,7 +48,7 @@ export default function StaffManagement() {
     const [adminToEdit, setAdminToEdit] = useState<AdminRole | null>(null);
 
     const rolesQuery = useMemoFirebase(() => {
-        if (!firestore || !user || user.role !== 'admin') return null;
+        if (!firestore || !user || !user.isSuperAdmin) return null;
         return collection(firestore, 'roles_admin');
     }, [firestore, user]);
 

@@ -34,10 +34,13 @@ const studentNavItems = [
 ];
 
 export function AppSidebar({ isMobile = false }: { isMobile?: boolean }) {
-  const { isRole } = useAuth();
+  const { isRole, user } = useAuth();
   const pathname = usePathname();
   const { content } = useSiteContent();
-  const navItems = isRole('admin') ? adminNavItems : studentNavItems;
+
+  const navItems = isRole('admin')
+    ? adminNavItems.filter(item => item.href !== '/admin/staff' || user?.isSuperAdmin)
+    : studentNavItems;
 
   const desktopClasses = "hidden border-r bg-muted/40 md:block";
 

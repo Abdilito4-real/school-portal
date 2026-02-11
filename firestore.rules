@@ -1,10 +1,13 @@
 /**
  * # Firestore Security Rules: Campus Hub
  *
- * ## Core Philosophy
- * This ruleset enforces a security model with two primary user types: Students and Administrators.
- * Students have strict ownership over their personal data (academic results, fees), ensuring privacy.
- * Administrators have broad permissions to manage global data (Classes, Announcements, Student profiles) and view student-specific data for administrative purposes.
+ * CORE PHILOSOPHY:
+ * 1. User Privacy: Users (students) can only read/write their own data in private collections.
+ * 2. Administrative Control:
+ *    - Super Admins have full access to everything.
+ *    - Class Admins are restricted to managing only their assigned classes.
+ * 3. Bootstrapping: The system allows 'admin@example.com' to act as a Super Admin
+ *    even if no database record exists, to facilitate initial setup.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -26,23 +29,34 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email == 'admin@example.com';
     }
 
-    function getAdminData() {
-      return get(/databases/$(database)/documents/roles_admin/$(request.auth.uid)).data;
+    // Helper to get admin doc data safely
+    function adminDoc() {
+      return get(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
+    // Check if current user is a super admin (either bootstrap or has the flag)
     function isSuperAdmin() {
-      return isBootstrapAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) && getAdminData().get('isSuperAdmin', false) == true);
+      return isBootstrapAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) &&
+        adminDoc().data.get('isSuperAdmin', false) == true
+      );
     }
 
+    // Check if current user is ANY kind of admin
     function isAuthorizedAdmin() {
-      return isBootstrapAdmin() || exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isBootstrapAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+      );
     }
 
+    // Check if current user is an admin for a specific class
     function isAdminOfClass(classId) {
       return isSuperAdmin() || (
         isSignedIn() &&
         exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) &&
-        classId in getAdminData().get('classIds', [])
+        classId in adminDoc().data.get('classIds', [])
       );
     }
 
@@ -60,17 +74,25 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // User-Private Collections
+    // User-Private Collections (Academic Results & Fees)
     // -------------------------------------------------------------------------
 
     match /users/{userId}/academicResults/{academicResultId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
-      allow create, update, delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(userId)).data.classId));
+      // Only Super Admins or assigned Class Admins can modify results
+      allow create, update, delete: if isSuperAdmin() || (
+        isAuthorizedAdmin() &&
+        isAdminOfClass(get(/databases/$(database)/documents/students/$(userId)).data.classId)
+      );
     }
 
     match /users/{userId}/fees/{feeId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
-      allow create, update, delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(userId)).data.classId));
+      // Only Super Admins or assigned Class Admins can modify fees
+      allow create, update, delete: if isSuperAdmin() || (
+        isAuthorizedAdmin() &&
+        isAdminOfClass(get(/databases/$(database)/documents/students/$(userId)).data.classId)
+      );
     }
 
     // -------------------------------------------------------------------------
@@ -78,15 +100,21 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /roles_admin/{userId} {
+      // Allow individual check for anyone signed in (needed for AuthProvider)
       allow get: if isSignedIn();
+
+      // Allow listing for super admins.
+      // isSuperAdmin handles both the bootstrap email and DB-verified super admins.
       allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin() || (isOwner(userId) && isBootstrapAdmin());
-      allow update, delete: if isSuperAdmin();
+
+      // Only Super Admins can manage other admins
+      allow create, update, delete: if isSuperAdmin() || (isOwner(userId) && isBootstrapAdmin());
     }
 
     match /students/{studentId} {
       allow get: if isOwner(studentId) || isAuthorizedAdmin();
       allow list: if isAuthorizedAdmin();
+      // Class admins can only create students for their own class
       allow create: if isAdminOfClass(request.resource.data.classId);
       allow update: if isAdminOfClass(resource.data.classId) && isAdminOfClass(request.resource.data.classId);
       allow delete: if isAdminOfClass(resource.data.classId);
@@ -94,15 +122,21 @@ service cloud.firestore {
 
     match /classes/{classId} {
       allow get, list: if isSignedIn();
+      // Only Super Admins can manage classes
       allow create, update, delete: if isSuperAdmin();
     }
 
     match /announcements/{announcementId} {
       allow get: if isAuthorizedAdmin() || (isSignedIn() && canReadAnnouncement(resource));
       allow list: if isSignedIn();
-      allow create: if isSuperAdmin() || (isAuthorizedAdmin() && request.resource.data.classIds.hasOnly(getAdminData().get('classIds', [])));
-      allow update: if isSuperAdmin() || (isAuthorizedAdmin() && resource.data.classIds.hasOnly(getAdminData().get('classIds', [])) && request.resource.data.classIds.hasOnly(getAdminData().get('classIds', [])));
-      allow delete: if isSuperAdmin() || (isAuthorizedAdmin() && resource.data.classIds.hasOnly(getAdminData().get('classIds', [])));
+      // Class admins can only post announcements to their assigned classes
+      allow create: if isSuperAdmin() || (isAuthorizedAdmin() && request.resource.data.classIds.hasOnly(adminDoc().data.get('classIds', [])));
+      allow update: if isSuperAdmin() || (
+        isAuthorizedAdmin() &&
+        resource.data.classIds.hasOnly(adminDoc().data.get('classIds', [])) &&
+        request.resource.data.classIds.hasOnly(adminDoc().data.get('classIds', []))
+      );
+      allow delete: if isSuperAdmin() || (isAuthorizedAdmin() && resource.data.classIds.hasOnly(adminDoc().data.get('classIds', [])));
     }
     
     match /site_content/{contentId} {
@@ -112,14 +146,28 @@ service cloud.firestore {
 
     match /fees/{feeId} {
       allow read: if isAuthorizedAdmin();
-      allow create, update: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classId));
-      allow delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId));
+      // Global fee tracking write permission
+      allow create, update: if isSuperAdmin() || (
+        isAuthorizedAdmin() &&
+        isAdminOfClass(get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classId)
+      );
+      allow delete: if isSuperAdmin() || (
+        isAuthorizedAdmin() &&
+        isAdminOfClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId)
+      );
     }
 
     match /academicResults/{resultId} {
       allow read: if isAuthorizedAdmin();
-      allow create, update: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classId));
-      allow delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId));
+      // Global results tracking write permission
+      allow create, update: if isSuperAdmin() || (
+        isAuthorizedAdmin() &&
+        isAdminOfClass(get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classId)
+      );
+      allow delete: if isSuperAdmin() || (
+        isAuthorizedAdmin() &&
+        isAdminOfClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId)
+      );
     }
   }
 }

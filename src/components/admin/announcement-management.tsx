@@ -152,7 +152,7 @@ export default function AnnouncementManagement() {
   const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: announcements, isLoading: isLoadingAnnouncements } = useCollection<Announcement>(useMemoFirebase(() => user ? collection(firestore, 'announcements') : null, [firestore, user]));
+  const { data: announcements, isLoading: isLoadingAnnouncements, error: announcementsError } = useCollection<Announcement>(useMemoFirebase(() => user ? collection(firestore, 'announcements') : null, [firestore, user]));
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => user ? collection(firestore, 'classes') : null, [firestore, user]));
 
   const filteredClasses = useMemo(() => {
@@ -194,7 +194,9 @@ export default function AnnouncementManagement() {
         <Card>
             <CardHeader><CardTitle>Posted Announcements</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-                {sortedAnnouncements.map(ann => (
+                {announcementsError ? (
+                  <p className="text-center text-destructive py-8">Error loading announcements: {announcementsError.message}</p>
+                ) : sortedAnnouncements.map(ann => (
                     <div key={ann.id} className="flex items-start justify-between border p-4 rounded-lg">
                         <div>
                             <p className="font-semibold">{ann.title}</p>
