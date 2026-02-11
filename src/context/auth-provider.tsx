@@ -47,11 +47,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const isBootstrapAdmin = fbUser.email === 'admin@example.com';
 
         if (adminSnap.exists() || isBootstrapAdmin) {
+          const adminData = adminSnap.exists() ? adminSnap.data() : null;
           const adminUser: User = {
             uid: fbUser.uid,
             email: fbUser.email,
             displayName: 'Admin',
             role: 'admin',
+            isSuperAdmin: isBootstrapAdmin || adminData?.isSuperAdmin === true,
+            assignedClassIds: adminData?.classIds || [],
           };
           setUser(adminUser);
         } else {

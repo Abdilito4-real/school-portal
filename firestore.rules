@@ -22,15 +22,28 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAuthorizedAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'admin@example.com' ||
-        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
-      );
-    }
-    
     function isBootstrapAdmin() {
       return isSignedIn() && request.auth.token.email == 'admin@example.com';
+    }
+
+    function getAdminData() {
+      return get(/databases/$(database)/documents/roles_admin/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isBootstrapAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) && getAdminData().get('isSuperAdmin', false) == true);
+    }
+
+    function isAuthorizedAdmin() {
+      return isBootstrapAdmin() || exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    function isAdminOfClass(classId) {
+      return isSuperAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) &&
+        classId in getAdminData().get('classIds', [])
+      );
     }
 
     function isCreatingOwnStudentData(userId) {
@@ -52,16 +65,12 @@ service cloud.firestore {
 
     match /users/{userId}/academicResults/{academicResultId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
-      allow create: if (isOwner(userId) || isAuthorizedAdmin()) && isCreatingOwnStudentData(userId);
-      allow update: if (isOwner(userId) || isAuthorizedAdmin()) && studentIdIsImmutable() && resource != null;
-      allow delete: if (isOwner(userId) || isAuthorizedAdmin()) && resource != null;
+      allow create, update, delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(userId)).data.classId));
     }
 
     match /users/{userId}/fees/{feeId} {
       allow get, list: if isOwner(userId) || isAuthorizedAdmin();
-      allow create: if (isOwner(userId) || isAuthorizedAdmin()) && isCreatingOwnStudentData(userId);
-      allow update: if (isOwner(userId) || isAuthorizedAdmin()) && studentIdIsImmutable() && resource != null;
-      allow delete: if (isOwner(userId) || isAuthorizedAdmin()) && resource != null;
+      allow create, update, delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(userId)).data.classId));
     }
 
     // -------------------------------------------------------------------------
@@ -69,46 +78,48 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /roles_admin/{userId} {
-      // Allow individual check
       allow get: if isSignedIn();
-
-      // Explicitly split list rules to avoid potential issues with complex expressions
-      allow list: if isSignedIn() && request.auth.token.email == 'admin@example.com';
-      allow list: if exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-
-      allow create: if isAuthorizedAdmin() || (isOwner(userId) && isBootstrapAdmin());
-      allow update, delete: if isAuthorizedAdmin();
+      allow list: if isSuperAdmin();
+      allow create: if isSuperAdmin() || (isOwner(userId) && isBootstrapAdmin());
+      allow update, delete: if isSuperAdmin();
     }
 
     match /students/{studentId} {
       allow get: if isOwner(studentId) || isAuthorizedAdmin();
       allow list: if isAuthorizedAdmin();
-      allow create, update, delete: if isAuthorizedAdmin();
+      allow create: if isAdminOfClass(request.resource.data.classId);
+      allow update: if isAdminOfClass(resource.data.classId) && isAdminOfClass(request.resource.data.classId);
+      allow delete: if isAdminOfClass(resource.data.classId);
     }
 
     match /classes/{classId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isAuthorizedAdmin();
+      allow create, update, delete: if isSuperAdmin();
     }
 
     match /announcements/{announcementId} {
       allow get: if isAuthorizedAdmin() || (isSignedIn() && canReadAnnouncement(resource));
       allow list: if isSignedIn();
-      allow create, update, delete: if isAuthorizedAdmin();
+      allow create: if isSuperAdmin() || (isAuthorizedAdmin() && request.resource.data.classIds.hasOnly(getAdminData().get('classIds', [])));
+      allow update: if isSuperAdmin() || (isAuthorizedAdmin() && resource.data.classIds.hasOnly(getAdminData().get('classIds', [])) && request.resource.data.classIds.hasOnly(getAdminData().get('classIds', [])));
+      allow delete: if isSuperAdmin() || (isAuthorizedAdmin() && resource.data.classIds.hasOnly(getAdminData().get('classIds', [])));
     }
     
     match /site_content/{contentId} {
       allow read;
-      allow write: if isAuthorizedAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /fees/{feeId} {
-      allow read, write: if isAuthorizedAdmin();
+      allow read: if isAuthorizedAdmin();
+      allow create, update: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classId));
+      allow delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId));
     }
 
     match /academicResults/{resultId} {
       allow read: if isAuthorizedAdmin();
-      allow write: if isSignedIn();
+      allow create, update: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classId));
+      allow delete: if isSuperAdmin() || (isAuthorizedAdmin() && isAdminOfClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId));
     }
   }
 }

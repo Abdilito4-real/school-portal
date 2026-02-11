@@ -131,9 +131,12 @@ function ClassForm({
   );
 }
 
+import { useAuth } from '@/hooks/use-auth';
+
 export default function ClassManagement() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [classToDelete, setClassToDelete] = useState<Class | null>(null);
@@ -148,10 +151,14 @@ export default function ClassManagement() {
     return acc;
   }, [students]);
 
-  const sortedClasses = useMemo(() => {
+  const filteredClasses = useMemo(() => {
     if (!classes) return [];
-    return [...classes].sort((a, b) => a.name.localeCompare(b.name));
-  }, [classes]);
+    let list = [...classes];
+    if (user && !user.isSuperAdmin) {
+      list = list.filter(cls => user.assignedClassIds?.includes(cls.id));
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [classes, user]);
 
   const performDelete = async () => {
       if (!classToDelete) return;
@@ -169,14 +176,20 @@ export default function ClassManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end"><Button onClick={() => { setSelectedClass(null); setFormOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />Create New Class</Button></div>
+      {user?.isSuperAdmin && (
+        <div className="flex justify-end">
+            <Button onClick={() => { setSelectedClass(null); setFormOpen(true); }}>
+                <PlusCircle className="mr-2 h-4 w-4" />Create New Class
+            </Button>
+        </div>
+      )}
       <Card>
-        <CardHeader><CardTitle>School Classes</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{user?.isSuperAdmin ? 'School Classes' : 'My Assigned Classes'}</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {isLoadingClasses ? (
             <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : sortedClasses.length > 0 ? (
-            sortedClasses.map(cls => (
+          ) : filteredClasses.length > 0 ? (
+            filteredClasses.map(cls => (
               <Card key={cls.id} className="hover:bg-muted/50 transition-colors">
                 <div className="p-4 flex items-center justify-between">
                   <Link href={`/admin/classes/${cls.id}`} className="flex-grow">
@@ -184,8 +197,12 @@ export default function ClassManagement() {
                     <p className="text-sm text-muted-foreground">{studentCountByClass[cls.id] || 0} Students</p>
                   </Link>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); setSelectedClass(cls); setFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); setClassToDelete(cls); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    {user?.isSuperAdmin && (
+                        <>
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); setSelectedClass(cls); setFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); setClassToDelete(cls); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </>
+                    )}
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </div>
                 </div>

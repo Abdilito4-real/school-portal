@@ -2,9 +2,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Announcement, FeeRecord, Student, Class, AcademicResult } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Users, Bell, BookCopy } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,14 +23,15 @@ import {
 
 export default function ActivityLogPage() {
   const firestore = useFirestore();
+  const { user } = useAuth();
 
-  const feesQuery = useMemoFirebase(() => query(collection(firestore, 'fees'), orderBy('createdAt', 'desc')), [firestore]);
+  const feesQuery = useMemoFirebase(() => query(collection(firestore, 'fees'), orderBy('createdAt', 'desc'), limit(100)), [firestore]);
   const { data: allFees, isLoading: isLoadingFees } = useCollection<FeeRecord>(feesQuery);
 
-  const announcementsQuery = useMemoFirebase(() => query(collection(firestore, 'announcements'), orderBy('createdAt', 'desc')), [firestore]);
+  const announcementsQuery = useMemoFirebase(() => query(collection(firestore, 'announcements'), orderBy('createdAt', 'desc'), limit(50)), [firestore]);
   const { data: allAnnouncements, isLoading: isLoadingAnnouncements } = useCollection<Announcement>(announcementsQuery);
 
-  const resultsQuery = useMemoFirebase(() => query(collection(firestore, 'academicResults'), orderBy('createdAt', 'desc')), [firestore]);
+  const resultsQuery = useMemoFirebase(() => query(collection(firestore, 'academicResults'), orderBy('createdAt', 'desc'), limit(100)), [firestore]);
   const { data: allResults, isLoading: isLoadingResults } = useCollection<AcademicResult>(resultsQuery);
 
   const studentsQuery = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
@@ -51,7 +53,25 @@ export default function ActivityLogPage() {
   const combinedActivities = useMemo(() => {
     if (!allFees || !allAnnouncements || !allResults) return [];
 
-    const feeActivities = allFees.map(fee => {
+    const filteredFees = user?.isSuperAdmin
+        ? allFees
+        : allFees.filter(f => {
+            const student = studentsById.get(f.studentId);
+            return student && user?.assignedClassIds?.includes(student.classId);
+        });
+
+    const filteredResults = user?.isSuperAdmin
+        ? allResults
+        : allResults.filter(r => {
+            const student = studentsById.get(r.studentId);
+            return student && user?.assignedClassIds?.includes(student.classId);
+        });
+
+    const filteredAnnouncements = user?.isSuperAdmin
+        ? allAnnouncements
+        : allAnnouncements.filter(ann => ann.classIds.some(cid => user?.assignedClassIds?.includes(cid)));
+
+    const feeActivities = filteredFees.map(fee => {
         const student = studentsById.get(fee.studentId);
         const studentClass = student ? classesById.get(student.classId) : undefined;
         return {
@@ -66,7 +86,7 @@ export default function ActivityLogPage() {
         }
     });
 
-    const announcementActivities = allAnnouncements.map(ann => ({
+    const announcementActivities = filteredAnnouncements.map(ann => ({
         id: ann.id,
         type: 'announcement' as const,
         description: `New announcement posted: "${ann.title}"`,
@@ -77,7 +97,7 @@ export default function ActivityLogPage() {
         grade: null,
     }));
 
-    const resultActivities = allResults.map(result => {
+    const resultActivities = filteredResults.map(result => {
         const student = studentsById.get(result.studentId);
         const studentClass = student ? classesById.get(student.classId) : undefined;
         return {

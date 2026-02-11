@@ -22,8 +22,11 @@ const StatCard = ({ title, value, icon: Icon, color, isLoading }: { title: strin
   </Card>
 );
 
+import { useAuth } from '@/hooks/use-auth';
+
 export default function AdminDashboard() {
   const firestore = useFirestore();
+  const { user } = useAuth();
 
   const studentsQuery = useMemoFirebase(() => query(collection(firestore, 'students')), [firestore]);
   const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
@@ -31,7 +34,7 @@ export default function AdminDashboard() {
   const allFeesQuery = useMemoFirebase(() => query(collection(firestore, 'fees')), [firestore]);
   const { data: allFees, isLoading: isLoadingFees } = useCollection<FeeRecord>(allFeesQuery);
   
-  const recentActivitiesQuery = useMemoFirebase(() => query(collection(firestore, 'fees'), orderBy('createdAt', 'desc'), limit(3)), [firestore]);
+  const recentActivitiesQuery = useMemoFirebase(() => query(collection(firestore, 'fees'), orderBy('createdAt', 'desc'), limit(10)), [firestore]);
   const { data: recentFees, isLoading: isLoadingRecent } = useCollection<FeeRecord>(recentActivitiesQuery);
 
   const contentDocRef = useMemoFirebase(() => doc(firestore, 'site_content', 'homepage'), [firestore]);
@@ -40,24 +43,43 @@ export default function AdminDashboard() {
 
   const isLoading = isLoadingStudents || isLoadingFees || isLoadingRecent || isLoadingContent;
 
+  const filteredStudents = useMemo(() => {
+    if (!students) return [];
+    if (user?.isSuperAdmin) return students;
+    return students.filter(s => user?.assignedClassIds?.includes(s.classId));
+  }, [students, user]);
+
+  const studentIdsSet = useMemo(() => new Set(filteredStudents.map(s => s.id)), [filteredStudents]);
+
+  const filteredFees = useMemo(() => {
+    if (!allFees) return [];
+    if (user?.isSuperAdmin) return allFees;
+    return allFees.filter(f => studentIdsSet.has(f.studentId));
+  }, [allFees, user, studentIdsSet]);
+
+  const filteredRecentFees = useMemo(() => {
+    if (!recentFees) return [];
+    if (user?.isSuperAdmin) return recentFees.slice(0, 3);
+    return recentFees.filter(f => studentIdsSet.has(f.studentId)).slice(0, 3);
+  }, [recentFees, user, studentIdsSet]);
+
   const feeStats = useMemo(() => {
-    if (!allFees) return { paid: 0, pending: 0, partial: 0 };
-    return allFees.reduce((acc, fee) => {
+    return filteredFees.reduce((acc, fee) => {
         if (fee.status === 'Paid') acc.paid++;
         if (fee.status === 'Pending') acc.pending++;
         if (fee.status === 'Partial') acc.partial++;
         return acc;
     }, { paid: 0, pending: 0, partial: 0 });
-  }, [allFees]);
+  }, [filteredFees]);
 
-  const totalStudents = students?.length ?? 0;
+  const totalStudentsCount = filteredStudents.length;
 
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Dashboard</h2>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <StatCard title="Total Students" value={String(totalStudents)} icon={Users} isLoading={isLoading} />
+        <StatCard title="Total Students" value={String(totalStudentsCount)} icon={Users} isLoading={isLoading} />
         <StatCard title="Fees Paid" value={String(feeStats.paid)} icon={CheckCircle} color="text-green-500" isLoading={isLoading} />
         <StatCard title="Fees Pending" value={String(feeStats.pending)} icon={Clock} color="text-red-500" isLoading={isLoading} />
       </div>
@@ -70,7 +92,7 @@ export default function AdminDashboard() {
           <CardContent className="flex flex-col space-y-2">
             <Button asChild className="justify-start" variant="ghost">
               <Link href="/admin/classes">
-                Manage Students & Classes <ArrowRight className="ml-auto h-4 w-4" />
+                {user?.isSuperAdmin ? 'Manage Students & Classes' : 'My Assigned Classes'} <ArrowRight className="ml-auto h-4 w-4" />
               </Link>
             </Button>
             <Button asChild className="justify-start" variant="ghost">
@@ -78,11 +100,13 @@ export default function AdminDashboard() {
                 Post Announcement <ArrowRight className="ml-auto h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild className="justify-start" variant="ghost">
-              <Link href="/admin/staff">
-                Manage Staff <ArrowRight className="ml-auto h-4 w-4" />
-              </Link>
-            </Button>
+            {user?.isSuperAdmin && (
+                <Button asChild className="justify-start" variant="ghost">
+                    <Link href="/admin/staff">
+                        Manage Staff <ArrowRight className="ml-auto h-4 w-4" />
+                    </Link>
+                </Button>
+            )}
             <Button asChild className="justify-start" variant="ghost">
               <Link href="/admin/activity">
                 View All Activity <ArrowRight className="ml-auto h-4 w-4" />
@@ -95,8 +119,8 @@ export default function AdminDashboard() {
             <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent className="flex-grow flex flex-col gap-4">
-             { isLoading ? <div className='flex justify-center items-center h-full'><Loader2 className="h-6 w-6 animate-spin text-primary" /></div> : !recentFees || recentFees.length === 0 ? (<p className="text-sm text-muted-foreground m-auto">No recent activity to display.</p>) :
-              recentFees.map(fee => (
+             { isLoading ? <div className='flex justify-center items-center h-full'><Loader2 className="h-6 w-6 animate-spin text-primary" /></div> : !filteredRecentFees || filteredRecentFees.length === 0 ? (<p className="text-sm text-muted-foreground m-auto">No recent activity to display.</p>) :
+              filteredRecentFees.map(fee => (
                 <div className="flex items-center" key={fee.id}>
                   <Users className="h-5 w-5 text-muted-foreground" />
                   <div className="ml-4">
@@ -117,9 +141,11 @@ export default function AdminDashboard() {
          <Card className="md:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Public Homepage Content</CardTitle>
-            <Button asChild variant="outline" size="sm">
-                <Link href="/admin/content"><Edit className="mr-2 h-4 w-4" /> Edit Content</Link>
-            </Button>
+            {user?.isSuperAdmin && (
+                <Button asChild variant="outline" size="sm">
+                    <Link href="/admin/content"><Edit className="mr-2 h-4 w-4" /> Edit Content</Link>
+                </Button>
+            )}
           </CardHeader>
           <CardContent>
             {isLoadingContent ? (

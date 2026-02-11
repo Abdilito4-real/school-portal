@@ -15,8 +15,11 @@ export default function ClassDetailsPage({ params }: { params: Promise<{ classId
     // Only create the document reference if the user is an admin
     const classDocRef = useMemoFirebase(() => {
         if (!firestore || !isRole('admin')) return null;
+        // Optimization: don't even fetch if we know we don't have permission
+        const hasPermission = user?.isSuperAdmin || user?.assignedClassIds?.includes(classId);
+        if (!hasPermission) return null;
         return doc(firestore, 'classes', classId);
-    }, [firestore, classId, isRole]);
+    }, [firestore, classId, isRole, user]);
     
     // Pass the potentially null ref to useDoc
     const { data: classData, isLoading: isClassLoading } = useDoc<Class>(classDocRef);
@@ -37,6 +40,16 @@ export default function ClassDetailsPage({ params }: { params: Promise<{ classId
         return (
              <div className="flex h-full w-full items-center justify-center">
                 <p className="text-muted-foreground">Access Denied. You must be an administrator to view this page.</p>
+            </div>
+        )
+    }
+
+    const hasPermission = user?.isSuperAdmin || user?.assignedClassIds?.includes(classId);
+
+    if (!hasPermission) {
+        return (
+             <div className="flex h-full w-full items-center justify-center">
+                <p className="text-muted-foreground">Access Denied. You do not have permission to manage this class.</p>
             </div>
         )
     }
