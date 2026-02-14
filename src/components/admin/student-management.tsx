@@ -53,7 +53,7 @@ export default function StudentManagement({ classId }: { classId: string }) {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'students'), where('classId', '==', classId));
   }, [firestore, classId, user]);
-  const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
+  const { data: students, isLoading: isLoadingStudents, error: studentsError } = useCollection<Student>(studentsQuery);
 
   const feesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -192,6 +192,12 @@ export default function StudentManagement({ classId }: { classId: string }) {
               <TableBody>
                   {isLoadingStudents ? (
                       <TableRow><TableCell colSpan={3} className="text-center py-10"><Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" /></TableCell></TableRow>
+                  ) : studentsError ? (
+                      <TableRow>
+                          <TableCell colSpan={3} className="text-center py-10 text-destructive">
+                              Error loading students: {studentsError.message}
+                          </TableCell>
+                      </TableRow>
                   ) : filteredStudents.length === 0 ? (
                       <TableRow><TableCell colSpan={3} className="text-center py-10 text-muted-foreground">No students found in this class.</TableCell></TableRow>
                   ) : filteredStudents.map(student => {

@@ -62,6 +62,7 @@ const AnnouncementForm = ({
 }) => {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useAuth();
   const allClassIds = useMemo(() => classes.map(c => c.id), [classes]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,7 +72,7 @@ const AnnouncementForm = ({
       ? {
           title: currentAnnouncement.title,
           content: currentAnnouncement.content,
-          targetClass: currentAnnouncement.classIds.length === allClassIds.length ? 'all' : currentAnnouncement.classIds[0] || '',
+          targetClass: currentAnnouncement.classIds.length === allClassIds.length && user?.isSuperAdmin ? 'all' : currentAnnouncement.classIds[0] || '',
         }
       : { title: '', content: '', targetClass: '' },
   });
@@ -125,7 +126,7 @@ const AnnouncementForm = ({
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select Audience"/></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="all">All Students</SelectItem>
+                      {user?.isSuperAdmin && <SelectItem value="all">All Students</SelectItem>}
                       {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -151,10 +152,22 @@ export default function AnnouncementManagement() {
   const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: announcements, isLoading: isLoadingAnnouncements } = useCollection<Announcement>(useMemoFirebase(() => user ? collection(firestore, 'announcements') : null, [firestore, user]));
+  const { data: announcements, isLoading: isLoadingAnnouncements, error: announcementsError } = useCollection<Announcement>(useMemoFirebase(() => user ? collection(firestore, 'announcements') : null, [firestore, user]));
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => user ? collection(firestore, 'classes') : null, [firestore, user]));
 
-  const sortedAnnouncements = useMemo(() => [...(announcements || [])].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)), [announcements]);
+  const filteredClasses = useMemo(() => {
+    if (!classes) return [];
+    if (user?.isSuperAdmin) return classes;
+    return classes.filter(c => user?.assignedClassIds?.includes(c.id));
+  }, [classes, user]);
+
+  const filteredAnnouncements = useMemo(() => {
+    if (!announcements) return [];
+    if (user?.isSuperAdmin) return announcements;
+    return announcements.filter(ann => ann.classIds.some(cid => user?.assignedClassIds?.includes(cid)));
+  }, [announcements, user]);
+
+  const sortedAnnouncements = useMemo(() => [...filteredAnnouncements].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)), [filteredAnnouncements]);
 
   const performDelete = async () => {
       if (!announcementToDelete) return;
@@ -175,13 +188,15 @@ export default function AnnouncementManagement() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-1">
-        <AnnouncementForm classes={classes || []} currentAnnouncement={editingAnnouncement || undefined} onFinished={() => setEditingAnnouncement(null)} />
+        <AnnouncementForm classes={filteredClasses} currentAnnouncement={editingAnnouncement || undefined} onFinished={() => setEditingAnnouncement(null)} />
       </div>
       <div className="lg:col-span-2">
         <Card>
             <CardHeader><CardTitle>Posted Announcements</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-                {sortedAnnouncements.map(ann => (
+                {announcementsError ? (
+                  <p className="text-center text-destructive py-8">Error loading announcements: {announcementsError.message}</p>
+                ) : sortedAnnouncements.map(ann => (
                     <div key={ann.id} className="flex items-start justify-between border p-4 rounded-lg">
                         <div>
                             <p className="font-semibold">{ann.title}</p>

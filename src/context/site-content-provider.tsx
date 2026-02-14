@@ -17,7 +17,10 @@ const SiteContentContext = createContext<SiteContentContextType>({
 
 export function SiteContentProvider({ children }: { children: ReactNode }) {
     const firestore = useFirestore();
-    const contentDocRef = useMemoFirebase(() => doc(firestore, 'site_content', 'homepage'), [firestore]);
+    const contentDocRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return doc(firestore, 'site_content', 'homepage');
+    }, [firestore]);
     const { data, isLoading } = useDoc<SiteContent>(contentDocRef);
     
     // Merge fetched data with defaults to ensure all fields are present

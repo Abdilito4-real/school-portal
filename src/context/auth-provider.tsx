@@ -39,21 +39,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkUserRoleAndData = async (fbUser: import('firebase/auth').User) => {
-      if (!firestore) {
-        setLoading(false);
-        return;
-      }
+      if (!firestore) return;
       
       try {
         const adminRoleRef = doc(firestore, `roles_admin/${fbUser.uid}`);
         const adminSnap = await getDoc(adminRoleRef);
+        const isBootstrapAdmin = fbUser.email === 'admin@example.com';
 
-        if (adminSnap.exists()) {
+        if (adminSnap.exists() || isBootstrapAdmin) {
+          const adminData = adminSnap.exists() ? adminSnap.data() : null;
           const adminUser: User = {
             uid: fbUser.uid,
             email: fbUser.email,
             displayName: 'Admin',
             role: 'admin',
+            isSuperAdmin: isBootstrapAdmin || adminData?.isSuperAdmin === true,
+            assignedClassIds: adminData?.classIds || [],
           };
           setUser(adminUser);
         } else {

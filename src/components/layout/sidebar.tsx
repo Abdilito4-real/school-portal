@@ -23,6 +23,7 @@ const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/classes', icon: School, label: 'Classes' },
   { href: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+  { href: '/admin/staff', icon: Users, label: 'Staff Management' },
   { href: '/admin/content', icon: FileText, label: 'Site Content' },
 ];
 
@@ -33,10 +34,13 @@ const studentNavItems = [
 ];
 
 export function AppSidebar({ isMobile = false }: { isMobile?: boolean }) {
-  const { isRole } = useAuth();
+  const { isRole, user } = useAuth();
   const pathname = usePathname();
   const { content } = useSiteContent();
-  const navItems = isRole('admin') ? adminNavItems : studentNavItems;
+
+  const navItems = isRole('admin')
+    ? adminNavItems.filter(item => item.href !== '/admin/staff' || user?.isSuperAdmin)
+    : studentNavItems;
 
   const desktopClasses = "hidden border-r bg-muted/40 md:block";
 

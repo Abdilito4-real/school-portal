@@ -5,7 +5,9 @@ export interface User {
   email?: string | null;
   displayName?: string | null;
   role: 'admin' | 'student';
-  classId?: string;
+  classId?: string; // For students
+  isSuperAdmin?: boolean; // For admins
+  assignedClassIds?: string[]; // For admins
 }
 
 export interface Student {
