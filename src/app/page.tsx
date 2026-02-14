@@ -6,9 +6,10 @@ import { PublicFooter } from '@/components/layout/public-footer';
 import { defaultSiteContent } from '@/lib/default-content';
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { SiteContent } from '@/lib/types';
-import { cache } from 'react';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-const getHomepageContent = cache(async (): Promise<SiteContent> => {
+async function getHomepageContent(): Promise<SiteContent> {
   try {
     const db = getAdminDb();
 
@@ -33,7 +34,7 @@ const getHomepageContent = cache(async (): Promise<SiteContent> => {
     console.error("Error fetching homepage content:", error.message);
     return defaultSiteContent;
   }
-});
+}
 
 export default async function HomePage() {
   const content = await getHomepageContent();

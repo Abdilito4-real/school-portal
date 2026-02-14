@@ -2,13 +2,14 @@
 'use client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Bell, ArrowRight, Loader2, CheckCircle, Clock, Edit } from 'lucide-react';
+import { Users, Bell, ArrowRight, Loader2, CheckCircle, Clock, Edit, ShieldAlert, Check } from 'lucide-react';
 import Link from 'next/link';
 import type { Student, FeeRecord, Announcement, SiteContent } from '@/lib/types';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { formatRelative } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
 
 const StatCard = ({ title, value, icon: Icon, color, isLoading }: { title: string; value: string; icon: React.ElementType; color?: string; isLoading: boolean }) => (
   <Card>
@@ -23,18 +24,44 @@ const StatCard = ({ title, value, icon: Icon, color, isLoading }: { title: strin
 );
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const firestore = useFirestore();
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
-  const studentsQuery = useMemoFirebase(() => query(collection(firestore, 'students')), [firestore]);
+  const isBootstrap = user?.displayName === 'Bootstrap Admin';
+
+  const handleFinalizeAdmin = async () => {
+    if (!firestore || !user?.uid) return;
+    setIsFinalizing(true);
+    try {
+      await setDoc(doc(firestore, 'roles_admin', user.uid), {
+        email: user.email,
+        createdAt: serverTimestamp(),
+        claimedBy: 'Bootstrap Action'
+      });
+      // Force a reload or just wait for AuthProvider to re-fetch?
+      // AuthProvider re-fetches when firestore or firebaseUser changes.
+      // Actually, we might need a way to trigger a re-check in AuthProvider.
+      // For now, let's just window.location.reload() for simplicity.
+      window.location.reload();
+    } catch (error) {
+      console.error("Error finalizing admin setup:", error);
+      alert("Failed to finalize setup. Check console for details.");
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const studentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'students')) : null, [firestore]);
   const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
   
-  const allFeesQuery = useMemoFirebase(() => query(collection(firestore, 'fees')), [firestore]);
+  const allFeesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'fees')) : null, [firestore]);
   const { data: allFees, isLoading: isLoadingFees } = useCollection<FeeRecord>(allFeesQuery);
   
-  const recentActivitiesQuery = useMemoFirebase(() => query(collection(firestore, 'fees'), orderBy('createdAt', 'desc'), limit(3)), [firestore]);
+  const recentActivitiesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'fees'), orderBy('createdAt', 'desc'), limit(3)) : null, [firestore]);
   const { data: recentFees, isLoading: isLoadingRecent } = useCollection<FeeRecord>(recentActivitiesQuery);
 
-  const contentDocRef = useMemoFirebase(() => doc(firestore, 'site_content', 'homepage'), [firestore]);
+  const contentDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'site_content', 'homepage') : null, [firestore]);
   const { data: siteContent, isLoading: isLoadingContent } = useDoc<SiteContent>(contentDocRef);
 
 
@@ -54,7 +81,44 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Dashboard</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Dashboard</h2>
+      </div>
+
+      {isBootstrap && (
+        <Card className="border-primary bg-primary/5">
+          <CardHeader className="flex flex-row items-center gap-4">
+            <div className="rounded-full bg-primary/10 p-2">
+              <ShieldAlert className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <CardTitle>System Setup Required</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                You are logged in as the bootstrap administrator. Complete the setup to finalize your role.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="flex justify-end">
+            <Button
+              onClick={handleFinalizeAdmin}
+              disabled={isFinalizing}
+              className="font-bold"
+            >
+              {isFinalizing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Finalizing...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Finalize Admin Setup
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <StatCard title="Total Students" value={String(totalStudents)} icon={Users} isLoading={isLoading} />

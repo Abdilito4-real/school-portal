@@ -19,12 +19,14 @@ export interface Student {
 }
 
 export interface AcademicResult {
-  id: string;
+  id: string; // studentId_term_year
   studentId: string;
   term: '1st' | '2nd' | '3rd';
   year: number;
-  className: string;
-  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  subjects?: {
+    subject: string;
+    grade: string;
+  }[];
   comments?: string;
   position?: string;
   createdAt: Timestamp;

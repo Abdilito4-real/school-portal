@@ -16,8 +16,9 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
-import { useState } from 'react';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Loader2, ArrowLeft, Info } from 'lucide-react';
+import { isFirebaseConfigValid } from '@/firebase/config';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -32,7 +33,14 @@ export function LoginForm() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [configMissing, setConfigMissing] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isFirebaseConfigValid) {
+        setConfigMissing(true);
+    }
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -77,6 +85,15 @@ export function LoginForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {configMissing && (
+            <Alert variant="default" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-200">
+                <Info className="h-4 w-4 !text-amber-600" />
+                <AlertTitle className="text-amber-900 dark:text-amber-100 font-bold">Configuration Required</AlertTitle>
+                <AlertDescription>
+                    Firebase environment variables are missing. Please configure <strong>NEXT_PUBLIC_FIREBASE_API_KEY</strong> and other required variables in your Vercel project settings or .env.local file to enable login.
+                </AlertDescription>
+            </Alert>
+        )}
         {error && (
             <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />

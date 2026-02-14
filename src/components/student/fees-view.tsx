@@ -28,7 +28,7 @@ export default function FeesView() {
   const firestore = useFirestore();
 
   const feesQuery = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'fees')) : null),
+    () => (user && firestore ? query(collection(firestore, 'users', user.uid, 'fees')) : null),
     [firestore, user]
   );
   const { data: studentFees, isLoading } = useCollection<FeeRecord>(feesQuery);

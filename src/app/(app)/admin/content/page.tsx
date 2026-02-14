@@ -130,7 +130,7 @@ export default function SiteContentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const contentDocRef = useMemoFirebase(() => doc(firestore, 'site_content', 'homepage'), [firestore]);
+  const contentDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'site_content', 'homepage') : null, [firestore]);
   const { data: contentData, isLoading } = useDoc<SiteContent>(contentDocRef);
   
   const form = useForm<z.infer<typeof contentSchema>>({
@@ -200,6 +200,14 @@ export default function SiteContentPage() {
 
 
   async function onSubmit(values: z.infer<typeof contentSchema>) {
+    if (!contentDocRef) {
+        toast({
+            title: 'Save Failed',
+            description: 'Firestore is not available.',
+            variant: 'destructive',
+        });
+        return;
+    }
     setIsSubmitting(true);
     try {
         const dirtyFields = form.formState.dirtyFields;
@@ -226,11 +234,13 @@ export default function SiteContentPage() {
         });
         form.reset(values, { keepDirty: false });
     } catch (e: any) {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: contentDocRef.path,
-            operation: 'write',
-            requestResourceData: values,
-        }));
+        if (contentDocRef) {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: contentDocRef.path,
+                operation: 'write',
+                requestResourceData: values,
+            }));
+        }
       toast({
         title: 'Save Failed',
         description: 'Could not save content. Please check permissions.',

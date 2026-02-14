@@ -15,9 +15,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { isFirebaseConfigValid } from '@/firebase/config';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const formSchema = z.object({
@@ -29,6 +30,13 @@ export function ForgotPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [configMissing, setConfigMissing] = useState(false);
+
+  useEffect(() => {
+    if (!isFirebaseConfigValid) {
+        setConfigMissing(true);
+    }
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,6 +76,15 @@ export function ForgotPasswordForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {configMissing && (
+            <Alert variant="default" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-200">
+                <Info className="h-4 w-4 !text-amber-600" />
+                <AlertTitle className="text-amber-900 dark:text-amber-100 font-bold">Configuration Required</AlertTitle>
+                <AlertDescription>
+                    Firebase environment variables are missing. Please configure <strong>NEXT_PUBLIC_FIREBASE_API_KEY</strong> and other required variables in your Vercel project settings or .env.local file to enable this feature.
+                </AlertDescription>
+            </Alert>
+        )}
         {error && (
             <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />

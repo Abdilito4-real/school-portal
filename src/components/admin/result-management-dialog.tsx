@@ -15,44 +15,45 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Student, AcademicResult, Class } from '@/lib/types';
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 
 export default function ResultManagementDialog({ student, onClose }: { student: Student; onClose: () => void }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const resultsColRef = useMemoFirebase(() => collection(firestore, 'users', student.id, 'academicResults'), [firestore, student.id]);
+    const resultsColRef = useMemoFirebase(() => firestore ? collection(firestore, 'users', student.id, 'academicResults') : null, [firestore, student.id]);
     const { data: results, isLoading } = useCollection<AcademicResult>(resultsColRef);
 
-    const { data: classes } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
+    const { data: classes } = useCollection<Class>(useMemoFirebase(() => firestore ? collection(firestore, 'classes') : null, [firestore]));
     const studentClass = classes?.find(c => c.id === student.classId);
 
-    const [newResult, setNewResult] = useState({
-        className: '',
-        grade: 'A' as any,
-        term: '1st' as any,
-        year: new Date().getFullYear(),
-        comments: '',
-        position: '',
-    });
+    const [selectedTerm, setSelectedTerm] = useState<'1st' | '2nd' | '3rd'>('1st');
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [termResults, setTermResults] = useState<{subject: string, grade: string}[]>([]);
+    const [comments, setComments] = useState('');
+    const [position, setPosition] = useState('');
 
     const downloadTemplate = () => {
+        const subjects = studentClass?.subjects || [];
+
+        if (subjects.length === 0) {
+            toast({
+                title: "No subjects defined",
+                description: "Please add subjects to this student's class in Class Management before downloading the template.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         const templateData = [
             {
-                Subject: 'Mathematics',
-                Grade: 'A',
-                Term: '1st',
-                Year: 2024,
-                Position: '1st',
-                Comments: 'Excellent performance'
-            },
-            {
-                Subject: 'English',
-                Grade: 'B',
-                Term: '1st',
-                Year: 2024,
-                Position: '3rd',
-                Comments: 'Good, but can improve'
+                'Student ID': student.id,
+                'First Name': student.firstName,
+                'Last Name': student.lastName,
+                ...Object.fromEntries(subjects.map(s => [s, 'A'])),
+                'Position': '1st',
+                'Comments': 'Excellent performance'
             }
         ];
 
@@ -63,37 +64,43 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
         
         toast({
             title: "Template Downloaded",
-            description: "Fill the Excel file and upload it to bulk add results for this student."
+            description: "Fill the Excel file and upload it. Term and Year are selected in the dialog."
         });
     };
 
-    async function handleAddResult() {
-        if (!newResult.className) return toast({ title: 'Select a subject', variant: 'destructive' });
+    async function handleSaveReport() {
+        if (!firestore) return;
+        if (termResults.length === 0) return toast({ title: 'Add at least one subject grade', variant: 'destructive' });
+
         setIsSubmitting(true);
         try {
-            const id = `res_${Date.now()}`;
+            const reportId = `report_${student.id}_${selectedTerm}_${selectedYear}`.replace(/[^a-zA-Z0-9]/g, '_');
             const data = {
-                ...newResult,
-                id,
+                id: reportId,
                 studentId: student.id,
+                term: selectedTerm,
+                year: selectedYear,
+                subjects: termResults,
+                comments,
+                position,
                 createdAt: serverTimestamp(),
             };
-            await setDoc(doc(firestore, 'users', student.id, 'academicResults', id), data);
-            await setDoc(doc(firestore, 'academicResults', id), data);
-            toast({ title: 'Result added successfully' });
-            setNewResult(prev => ({ ...prev, className: '', comments: '', position: '' }));
+            await setDoc(doc(firestore, 'users', student.id, 'academicResults', reportId), data);
+            await setDoc(doc(firestore, 'academicResults', reportId), data);
+            toast({ title: 'Report saved successfully' });
         } catch (e) {
-            toast({ title: 'Failed to add result', variant: 'destructive' });
+            toast({ title: 'Failed to save report', variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
         }
     }
 
     async function handleDelete(id: string) {
+        if (!firestore) return;
         try {
             await deleteDoc(doc(firestore, 'users', student.id, 'academicResults', id));
             await deleteDoc(doc(firestore, 'academicResults', id));
-            toast({ title: 'Result removed' });
+            toast({ title: 'Record removed' });
         } catch (e) {
             toast({ title: 'Failed to delete' });
         }
@@ -101,112 +108,131 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !firestore) return;
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
-            const bstr = evt.target?.result;
-            const wb = XLSX.read(bstr, { type: 'binary' });
-            const wsname = wb.SheetNames[0];
-            const ws = wb.Sheets[wsname];
-            const data = XLSX.utils.sheet_to_json(ws);
-
-            setIsSubmitting(true);
             try {
-                for (const row of data as any[]) {
-                    const id = `res_bulk_${Math.random().toString(36).substr(2, 9)}`;
-                    const payload = {
-                        className: row.Subject || row.subject || row.className || 'Unknown',
-                        grade: (row.Grade || row.grade || 'C').toString().toUpperCase(),
-                        term: (row.Term || row.term || '1st').toString(),
-                        year: Number(row.Year || row.year || new Date().getFullYear()),
-                        comments: row.Comments || row.comments || '',
-                        position: (row.Position || row.position || '').toString(),
-                        studentId: student.id,
-                        createdAt: serverTimestamp(),
-                    };
-                    await setDoc(doc(firestore, 'users', student.id, 'academicResults', id), payload);
-                    await setDoc(doc(firestore, 'academicResults', id), payload);
-                }
-                toast({ title: `Successfully uploaded ${data.length} results` });
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const data = XLSX.utils.sheet_to_json(ws);
+                const row = data[0] as any;
+
+                if (!row) throw new Error("File is empty");
+
+                const nonSubjectKeys = ['studentId', 'firstName', 'lastName', 'email', 'position', 'comments', 'Student ID', 'First Name', 'Last Name', 'Email', 'Position', 'Comments'];
+                const subjectsInRow = Object.keys(row).filter(key => !nonSubjectKeys.includes(key));
+                const uploadedSubjects = subjectsInRow.map(s => ({
+                    subject: s,
+                    grade: (row[s] || 'C').toString().toUpperCase()
+                }));
+
+                setTermResults(uploadedSubjects);
+                setComments((row['Comments'] || row['comments'] || '').toString());
+                setPosition((row['Position'] || row['position'] || '').toString());
+
+                toast({ title: "Excel data loaded. Review and click Save Report." });
             } catch (err) {
                 console.error(err);
-                toast({ title: 'Bulk upload failed', variant: 'destructive' });
-            } finally {
-                setIsSubmitting(false);
+                toast({ title: 'Upload failed', variant: 'destructive' });
             }
         };
         reader.readAsBinaryString(file);
+    };
+
+    const addSubjectRow = () => {
+        const firstAvailable = studentClass?.subjects?.find(s => !termResults.find(tr => tr.subject === s)) || studentClass?.subjects?.[0] || 'New Subject';
+        setTermResults([...termResults, { subject: firstAvailable, grade: 'A' }]);
     };
 
     return (
         <div className="space-y-6">
             <DialogHeader>
                 <DialogTitle>Academic Results: {student.firstName} {student.lastName}</DialogTitle>
-                <DialogDescription>Manage performance records for individual terms and years.</DialogDescription>
+                <DialogDescription>Manage term-based performance records. Uploading overwrites previous data for the same term/year.</DialogDescription>
             </DialogHeader>
 
-            <Alert className="bg-primary/5 border-primary/20">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Bulk Upload Instructions</AlertTitle>
-                <AlertDescription className="space-y-4">
-                    <p>To upload multiple results, ensure your Excel file contains these exact headers. Note that <strong>Term</strong> must be one of: 1st, 2nd, 3rd.</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono font-bold text-primary">
-                        <Badge variant="outline">Subject</Badge>
-                        <Badge variant="outline">Grade (A-F)</Badge>
-                        <Badge variant="outline">Term (1st/2nd/3rd)</Badge>
-                        <Badge variant="outline">Year (e.g. 2024)</Badge>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4 border p-4 rounded-lg bg-muted/30">
+                    <h4 className="font-semibold text-sm border-b pb-2">Report Details</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <Label>Term</Label>
+                            <Select value={selectedTerm} onValueChange={v => setSelectedTerm(v as any)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="1st">1st Term</SelectItem>
+                                    <SelectItem value="2nd">2nd Term</SelectItem>
+                                    <SelectItem value="3rd">3rd Term</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Year</Label>
+                            <Input type="number" value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} />
+                        </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={downloadTemplate} className="w-full mt-2">
-                        <Download className="mr-2 h-4 w-4" /> Download Result Template (.xlsx)
-                    </Button>
-                </AlertDescription>
-            </Alert>
+                    <div className="space-y-1">
+                        <Label>Position in Class</Label>
+                        <Input placeholder="e.g. 1st of 30" value={position} onChange={e => setPosition(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                        <Label>Principal's Comments</Label>
+                        <Input placeholder="General remarks..." value={comments} onChange={e => setComments(e.target.value)} />
+                    </div>
 
-            <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-sm">Add New Entry</h4>
-                    <div className="flex gap-2">
+                    <div className="pt-4 border-t flex flex-col gap-2">
+                        <Button variant="outline" size="sm" onClick={downloadTemplate} className="w-full">
+                            <Download className="mr-2 h-4 w-4" /> Download Template
+                        </Button>
                         <Label htmlFor="excel-upload" className="cursor-pointer">
-                            <div className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                                <FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Upload (Excel)
+                            <div className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), "w-full")}>
+                                <FileSpreadsheet className="mr-2 h-4 w-4" /> Load from Excel
                             </div>
                         </Label>
                         <Input id="excel-upload" type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
+                        <Button onClick={handleSaveReport} disabled={isSubmitting} className="w-full mt-2">
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />} Save Report
+                        </Button>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                    <div className="md:col-span-2">
-                        <Select value={newResult.className} onValueChange={v => setNewResult({...newResult, className: v})}>
-                            <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
-                            <SelectContent>
-                                {studentClass?.subjects?.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+
+                <div className="space-y-4 border p-4 rounded-lg bg-muted/30">
+                    <div className="flex justify-between items-center border-b pb-2">
+                        <h4 className="font-semibold text-sm">Subject Grades</h4>
+                        <Button variant="ghost" size="sm" onClick={addSubjectRow}><Plus className="h-4 w-4 mr-1" /> Add</Button>
                     </div>
-                    <Select value={newResult.grade} onValueChange={v => setNewResult({...newResult, grade: v as any})}>
-                        <SelectTrigger><SelectValue placeholder="Grade" /></SelectTrigger>
-                        <SelectContent>
-                            {['A', 'B', 'C', 'D', 'F'].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Select value={newResult.term} onValueChange={v => setNewResult({...newResult, term: v as any})}>
-                        <SelectTrigger><SelectValue placeholder="Term" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="1st">1st Term</SelectItem>
-                            <SelectItem value="2nd">2nd Term</SelectItem>
-                            <SelectItem value="3rd">3rd Term</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Input 
-                        type="number" 
-                        placeholder="Year" 
-                        value={newResult.year} 
-                        onChange={e => setNewResult({...newResult, year: Number(e.target.value)})} 
-                    />
-                    <Button onClick={handleAddResult} disabled={isSubmitting} className="w-full">
-                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />} Add
-                    </Button>
+                    <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                        {termResults.map((tr, idx) => (
+                            <div key={idx} className="flex gap-2 items-center">
+                                <Select value={tr.subject} onValueChange={v => {
+                                    const next = [...termResults];
+                                    next[idx].subject = v;
+                                    setTermResults(next);
+                                }}>
+                                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {studentClass?.subjects?.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={tr.grade} onValueChange={v => {
+                                    const next = [...termResults];
+                                    next[idx].grade = v;
+                                    setTermResults(next);
+                                }}>
+                                    <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {['A', 'B', 'C', 'D', 'F'].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Button variant="ghost" size="icon" onClick={() => setTermResults(termResults.filter((_, i) => i !== idx))}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        ))}
+                        {termResults.length === 0 && <p className="text-center py-10 text-muted-foreground text-xs italic">No subjects added. Use Excel or add manually.</p>}
+                    </div>
                 </div>
             </div>
 
@@ -214,10 +240,10 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Subject</TableHead>
-                            <TableHead>Grade</TableHead>
                             <TableHead>Term</TableHead>
                             <TableHead>Year</TableHead>
+                            <TableHead>Subjects</TableHead>
+                            <TableHead>Position</TableHead>
                             <TableHead className="text-right">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -228,10 +254,17 @@ export default function ResultManagementDialog({ student, onClose }: { student: 
                             <TableRow><TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No records found for this student.</TableCell></TableRow>
                         ) : results?.sort((a, b) => b.year - a.year || (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).map(res => (
                             <TableRow key={res.id}>
-                                <TableCell className="font-medium">{res.className}</TableCell>
-                                <TableCell><Badge variant="secondary">{res.grade}</Badge></TableCell>
-                                <TableCell>{res.term}</TableCell>
+                                <TableCell className="font-bold">{res.term}</TableCell>
                                 <TableCell>{res.year}</TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                        {(res.subjects || []).slice(0, 3).map((s, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-[10px]">{s.subject}: {s.grade}</Badge>
+                                        ))}
+                                        {(res.subjects?.length || 0) > 3 && <span className="text-[10px] text-muted-foreground">+{(res.subjects?.length || 0) - 3} more</span>}
+                                    </div>
+                                </TableCell>
+                                <TableCell>{res.position}</TableCell>
                                 <TableCell className="text-right">
                                     <Button variant="ghost" size="icon" onClick={() => handleDelete(res.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                 </TableCell>

@@ -43,6 +43,7 @@ import { Trash2, Edit, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { sortClasses } from '@/lib/utils';
 
 const announcementSchema = z.object({
   title: z.string().min(3, 'Title is too short'),
@@ -87,12 +88,14 @@ const AnnouncementForm = ({
             createdAt: serverTimestamp(),
         };
 
-        if (currentAnnouncement) {
-            await updateDoc(doc(firestore, 'announcements', currentAnnouncement.id), data);
-            toast({ title: 'Announcement Updated!' });
-        } else {
-            await addDoc(collection(firestore, 'announcements'), data);
-            toast({ title: 'Announcement Posted!' });
+        if (firestore) {
+            if (currentAnnouncement) {
+                await updateDoc(doc(firestore, 'announcements', currentAnnouncement.id), data);
+                toast({ title: 'Announcement Updated!' });
+            } else {
+                await addDoc(collection(firestore, 'announcements'), data);
+                toast({ title: 'Announcement Posted!' });
+            }
         }
         form.reset();
         onFinished();
@@ -126,7 +129,7 @@ const AnnouncementForm = ({
                     <FormControl><SelectTrigger><SelectValue placeholder="Select Audience"/></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="all">All Students</SelectItem>
-                      {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      {sortClasses(classes).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -151,13 +154,13 @@ export default function AnnouncementManagement() {
   const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: announcements, isLoading: isLoadingAnnouncements } = useCollection<Announcement>(useMemoFirebase(() => user ? collection(firestore, 'announcements') : null, [firestore, user]));
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => user ? collection(firestore, 'classes') : null, [firestore, user]));
+  const { data: announcements, isLoading: isLoadingAnnouncements } = useCollection<Announcement>(useMemoFirebase(() => (user && firestore) ? collection(firestore, 'announcements') : null, [firestore, user]));
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => (user && firestore) ? collection(firestore, 'classes') : null, [firestore, user]));
 
   const sortedAnnouncements = useMemo(() => [...(announcements || [])].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)), [announcements]);
 
   const performDelete = async () => {
-      if (!announcementToDelete) return;
+      if (!announcementToDelete || !firestore) return;
       setIsDeleting(true);
       try {
           await deleteDoc(doc(firestore, 'announcements', announcementToDelete.id));

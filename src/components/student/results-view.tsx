@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import type { AcademicResult, Class, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,15 +30,15 @@ const groupResultsBySession = (results: AcademicResult[]) => {
       acc[sessionKey] = {
         session: sessionKey,
         createdAt: result.createdAt,
-        results: []
+        reports: []
       };
     }
-    acc[sessionKey].results.push(result);
+    acc[sessionKey].reports.push(result);
     if (result.createdAt?.toMillis() > acc[sessionKey].createdAt?.toMillis()) {
         acc[sessionKey].createdAt = result.createdAt;
     }
     return acc;
-  }, {} as Record<string, { session: string; createdAt: any; results: AcademicResult[] }>);
+  }, {} as Record<string, { session: string; createdAt: any; reports: AcademicResult[] }>);
 };
 
 const GradeInfo = () => (
@@ -75,15 +75,12 @@ const ClientRelativeTime = ({ date }: { date: Date }) => {
 };
 
 
-const ReportCard = ({ session, sessionResults, user, className, defaultTerm }: { session: string, sessionResults: AcademicResult[], user: User, className: string, defaultTerm: '1st' | '2nd' | '3rd' }) => {
+const ReportCard = ({ session, sessionReports, user, className, defaultTerm }: { session: string, sessionReports: AcademicResult[], user: User, className: string, defaultTerm: '1st' | '2nd' | '3rd' }) => {
     
-    const resultsByTerm = sessionResults.reduce((acc, result) => {
-        if (!acc[result.term]) {
-            acc[result.term] = [];
-        }
-        acc[result.term].push(result);
+    const reportsByTerm = sessionReports.reduce((acc, report) => {
+        acc[report.term] = report;
         return acc;
-    }, {} as Record<'1st' | '2nd' | '3rd', AcademicResult[]>);
+    }, {} as Record<'1st' | '2nd' | '3rd', AcademicResult>);
 
     const ALL_TERMS = ['1st', '2nd', '3rd'] as const;
     
@@ -122,27 +119,27 @@ const ReportCard = ({ session, sessionResults, user, className, defaultTerm }: {
                     ))}
                 </TabsList>
                 {ALL_TERMS.map(term => {
-                    const termResults = resultsByTerm[term];
+                    const report = reportsByTerm[term];
                     
                     return (
                         <TabsContent key={term} value={term}>
-                            {termResults && termResults.length > 0 ? (
+                            {report ? (
                                 <>
                                     <div className="p-6">
                                         <div className="grid grid-cols-2 gap-6 items-start">
                                             <div>
                                                 <h3 className="font-bold text-lg mb-2">Subjects</h3>
                                                 <div className="bg-background rounded-lg p-4 space-y-3 shadow-inner">
-                                                    {termResults.map(r => (
-                                                        <p key={r.id} className="text-sm text-muted-foreground border-b border-border pb-2">{r.className}</p>
+                                                    {(report.subjects || []).map((s, idx) => (
+                                                        <p key={idx} className="text-sm text-muted-foreground border-b border-border pb-2">{s.subject}</p>
                                                     ))}
                                                 </div>
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-lg mb-2">Grade</h3>
                                                 <div className="bg-background rounded-lg p-4 space-y-3 shadow-inner">
-                                                    {termResults.map(r => (
-                                                        <p key={r.id} className="text-sm font-bold text-center border-b border-border pb-2">{r.grade}</p>
+                                                    {(report.subjects || []).map((s, idx) => (
+                                                        <p key={idx} className="text-sm font-bold text-center border-b border-border pb-2">{s.grade}</p>
                                                     ))}
                                                 </div>
                                             </div>
@@ -153,13 +150,13 @@ const ReportCard = ({ session, sessionResults, user, className, defaultTerm }: {
                                             <div>
                                                 <h3 className="font-bold text-lg mb-2">Overall Position</h3>
                                                 <div className="bg-background rounded-lg p-4 h-28 shadow-inner flex items-center justify-center">
-                                                    <p className="text-3xl font-bold">{termResults[0]?.position || 'N/A'}</p>
+                                                    <p className="text-3xl font-bold">{report.position || 'N/A'}</p>
                                                 </div>
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-lg mb-2">Comments</h3>
                                                 <div className="bg-background rounded-lg p-4 h-28 shadow-inner overflow-y-auto">
-                                                    <p className="text-sm text-muted-foreground italic">{termResults[0]?.comments || 'Good progress this term. Keep up the hard work.'}</p>
+                                                    <p className="text-sm text-muted-foreground italic">{report.comments || 'Good progress this term. Keep up the hard work.'}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -191,12 +188,18 @@ export default function ResultsView() {
   const [selectedTerm, setSelectedTerm] = useState<'1st' | '2nd' | '3rd'>('1st');
 
   const resultsQuery = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'academicResults')) : null),
+    () =>
+      user && firestore
+        ? query(
+            collection(firestore, 'users', user.uid, 'academicResults'),
+            orderBy('createdAt', 'desc')
+          )
+        : null,
     [firestore, user]
   );
   const { data: studentResults, isLoading: isLoadingResults } = useCollection<AcademicResult>(resultsQuery);
 
-  const classesQuery = useMemoFirebase(() => user ? collection(firestore, 'classes') : null, [firestore, user]);
+  const classesQuery = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'classes') : null, [firestore, user]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
   const isLoading = isLoadingResults || isLoadingClasses;
@@ -234,12 +237,12 @@ export default function ResultsView() {
     const timeA = sessionA.createdAt?.toMillis() || 0;
     const timeB = sessionB.createdAt?.toMillis() || 0;
     return timeB - timeA;
-  });
+  }).slice(0, 1);
   
   const studentClassName = classes?.find(c => c.id === user?.classId)?.name || 'Unknown';
 
   if (selectedSessionKey && groupedResults[selectedSessionKey]) {
-    const { session, results } = groupedResults[selectedSessionKey];
+    const { session, reports } = groupedResults[selectedSessionKey];
     return (
         <div className="space-y-6">
             <Button variant="outline" onClick={() => setSelectedSessionKey(null)}>
@@ -248,7 +251,7 @@ export default function ResultsView() {
             </Button>
             <ReportCard
                 session={session}
-                sessionResults={results}
+                sessionReports={reports}
                 user={user}
                 className={studentClassName}
                 defaultTerm={selectedTerm}
@@ -262,8 +265,8 @@ export default function ResultsView() {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {sessionOrder.map((sessionKey) => {
-            const { session, createdAt, results } = groupedResults[sessionKey];
-            const availableTerms = new Set(results.map(r => r.term));
+            const { session, createdAt, reports } = groupedResults[sessionKey];
+            const availableTerms = new Set(reports.map(r => r.term));
             return (
                 <Card key={sessionKey} className="flex flex-col">
                     <CardHeader>

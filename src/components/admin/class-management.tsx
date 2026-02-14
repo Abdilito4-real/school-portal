@@ -39,6 +39,7 @@ import {
 import Link from 'next/link';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { sortClasses } from '@/lib/utils';
 
 const classSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
@@ -48,7 +49,7 @@ const classSchema = z.object({
   })).min(1, "Add at least one subject."),
 });
 
-function ClassForm({
+export function ClassForm({
   setOpen,
   currentClass,
 }: {
@@ -81,6 +82,7 @@ function ClassForm({
       subjects: values.subjects?.map(s => s.value).filter(Boolean) || [],
     };
     try {
+      if (!firestore) throw new Error("Firestore not available");
       if (currentClass) {
         await updateDoc(doc(firestore, 'classes', currentClass.id), classData);
         toast({ title: 'Class Updated!' });
@@ -139,8 +141,8 @@ export default function ClassManagement() {
   const [classToDelete, setClassToDelete] = useState<Class | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => collection(firestore, 'classes'), [firestore]));
-  const { data: students } = useCollection<Student>(useMemoFirebase(() => collection(firestore, 'students'), [firestore]));
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(useMemoFirebase(() => firestore ? collection(firestore, 'classes') : null, [firestore]));
+  const { data: students } = useCollection<Student>(useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]));
 
   const studentCountByClass = useMemo(() => {
     const acc: Record<string, number> = {};
@@ -150,11 +152,11 @@ export default function ClassManagement() {
 
   const sortedClasses = useMemo(() => {
     if (!classes) return [];
-    return [...classes].sort((a, b) => a.name.localeCompare(b.name));
+    return sortClasses(classes);
   }, [classes]);
 
   const performDelete = async () => {
-      if (!classToDelete) return;
+      if (!classToDelete || !firestore) return;
       setIsDeleting(true);
       try {
           await deleteDoc(doc(firestore, 'classes', classToDelete.id));

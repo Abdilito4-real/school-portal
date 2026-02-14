@@ -69,5 +69,10 @@ const generateSiteContentFlow = ai.defineFlow(
 
 // Exported wrapper function
 export async function generateSiteContent(input: GenerateSiteContentInput): Promise<GenerateSiteContentOutput> {
-  return generateSiteContentFlow(input);
+  try {
+    return await generateSiteContentFlow(input);
+  } catch (error: any) {
+    console.error("Genkit Flow Error:", error);
+    throw new Error(error.message || "Failed to generate content with AI.");
+  }
 }
